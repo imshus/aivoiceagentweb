@@ -14,20 +14,23 @@
     margin: 0; font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
     background: radial-gradient(1200px 600px at 50% -10%, #20264a, #0f1220);
     color: #e8eaf2; min-height: 100vh; display: flex; flex-direction: column;
-    align-items: center; padding: 24px;
+    align-items: center; justify-content: center; padding: 24px;
   }
   h1 { font-size: 20px; font-weight: 650; margin: 8px 0 2px; letter-spacing: .2px; }
   .sub { color: var(--muted); font-size: 13px; margin-bottom: 22px; }
   .mic-wrap { display: flex; flex-direction: column; align-items: center; gap: 14px; }
   #mic {
-    width: 128px; height: 128px; border-radius: 50%; border: none; cursor: pointer;
-    background: linear-gradient(160deg, var(--accent), #e0a92e); color: #201a06;
-    font-size: 15px; font-weight: 700; box-shadow: 0 10px 40px rgba(244,197,66,.28);
-    transition: transform .12s ease, box-shadow .2s ease; position: relative;
+    width: 108px; height: 108px; border-radius: 28px; border: none; cursor: pointer;
+    background: linear-gradient(160deg, #34d17a, #16a34a); color: #fff;
+    display: flex; align-items: center; justify-content: center;
+    box-shadow: 0 10px 40px rgba(34,197,94,.3);
+    transition: transform .12s ease, box-shadow .2s ease, background .2s ease;
+    position: relative;
   }
+  #mic svg { width: 46px; height: 46px; display: block; }
   #mic:hover { transform: translateY(-2px); }
   #mic.live {
-    background: linear-gradient(160deg, #ff6b6b, #e0453e); color: #fff;
+    background: linear-gradient(160deg, #ff6b6b, #e0453e);
     box-shadow: 0 0 0 0 rgba(255,107,107,.5); animation: pulse 1.6s infinite;
   }
   #mic:disabled { opacity: .6; cursor: default; animation: none; }
@@ -39,17 +42,6 @@
   #status { font-size: 14px; color: var(--muted); min-height: 20px; }
   #status.speaking { color: var(--accent); }
   #status.listening { color: #7ee0a1; }
-  .log {
-    width: min(680px, 100%); margin-top: 26px; background: var(--panel);
-    border: 1px solid #262c48; border-radius: 14px; padding: 14px; height: 46vh;
-    overflow-y: auto; display: flex; flex-direction: column; gap: 10px;
-  }
-  .msg { padding: 10px 13px; border-radius: 12px; max-width: 82%; font-size: 14.5px; line-height: 1.45; }
-  .msg.user  { align-self: flex-end;   background: var(--user);  border-bottom-right-radius: 4px; }
-  .msg.agent { align-self: flex-start; background: var(--agent); border-bottom-left-radius: 4px; }
-  .msg .who { font-size: 11px; color: var(--muted); margin-bottom: 3px; display: block; }
-  .empty { color: var(--muted); text-align: center; margin: auto; font-size: 13px; }
-  .hint { color: var(--muted); font-size: 12px; margin-top: 14px; max-width: 620px; text-align: center; }
 </style>
 </head>
 <body>
@@ -57,17 +49,8 @@
   <div class="sub">Talk to the AI assistant using your microphone</div>
 
   <div class="mic-wrap">
-    <button id="mic">Start<br/>Talking</button>
+    <button id="mic" aria-label="Start call"></button>
     <div id="status">Click the mic and allow microphone access</div>
-  </div>
-
-  <div class="log" id="log">
-    <div class="empty" id="empty">Your conversation will appear here…</div>
-  </div>
-
-  <div class="hint">
-    Tip: use headphones for the best experience — it stops the agent from hearing
-    its own voice through your speakers.
   </div>
 
 <script>
@@ -96,16 +79,36 @@ function mulawToLinear(u) {                // μ-law byte → int16
 // ── State ───────────────────────────────────────────────────────────────────
 const micBtn = document.getElementById("mic");
 const statusEl = document.getElementById("status");
-const logEl = document.getElementById("log");
-const emptyEl = document.getElementById("empty");
 
 let ws = null, audioCtx = null, micStream = null;
 let processor = null, sourceNode = null, silentGain = null;
 let running = false;
 
+// Call-button icons: green phone (idle → connect) / red hang-up (live → end).
+const ICON_CALL =
+  '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">' +
+  '<path d="M6.62 10.79c1.44 2.83 3.76 5.14 6.59 6.59l2.2-2.2c.27-.27.67-.36 1.02-.24 ' +
+  '1.12.37 2.33.57 3.57.57.55 0 1 .45 1 1V20c0 .55-.45 1-1 1-9.39 0-17-7.61-17-17 ' +
+  '0-.55.45-1 1-1h3.5c.55 0 1 .45 1 1 0 1.25.2 2.45.57 3.57.11.35.03.74-.25 1.02l-2.2 2.2z"/></svg>';
+const ICON_END =
+  '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">' +
+  '<path d="M12 9c-1.6 0-3.15.25-4.6.72v3.1c0 .39-.23.74-.56.9-.98.49-1.87 1.12-2.66 ' +
+  '1.85-.18.18-.43.28-.7.28-.28 0-.53-.11-.71-.29L.29 13.08c-.18-.17-.29-.42-.29-.7 ' +
+  '0-.28.11-.53.29-.71C3.34 8.78 7.46 7 12 7s8.66 1.78 11.71 4.67c.18.18.29.43.29.71 ' +
+  '0 .28-.11.53-.29.71l-2.48 2.48c-.18.18-.43.29-.71.29-.27 0-.52-.11-.7-.28-.79-.74-1.69-1.36-2.67-1.85-.33-.16-.56-.5-.56-.9v-3.1C15.15 9.25 13.6 9 12 9z"/></svg>';
+
 // Ringback ("calling…") tone: plays from the click until the agent's first
 // audio arrives (the "pickup"), like a phone ringing while it connects.
 let ringOscs = null, ringGain = null, ringTimer = null, ringing = false;
+
+// The agent is pre-warmed, so its first audio can arrive almost instantly —
+// which made the greeting cut in "suddenly" before it felt like a real call.
+// Enforce a minimum ring time: buffer early agent audio and only "pick up"
+// after the phone has rung for at least MIN_RING_MS.
+const MIN_RING_MS = 1200;
+let ringStartMs = 0;
+let pickupBuffer = [];   // agent audio held until the ring reaches MIN_RING_MS
+let pickupTimer = null;
 
 // Playback scheduling (gapless μ-law @ 8 kHz)
 let nextPlayTime = 0;
@@ -120,20 +123,11 @@ function setStatus(text, cls) {
   statusEl.className = cls || "";
 }
 
-function addMessage(role, text) {
-  if (emptyEl) emptyEl.remove();
-  const div = document.createElement("div");
-  div.className = "msg " + (role === "user" ? "user" : "agent");
-  div.innerHTML = '<span class="who">' + (role === "user" ? "You" : "Agent") + "</span>";
-  div.appendChild(document.createTextNode(text));
-  logEl.appendChild(div);
-  logEl.scrollTop = logEl.scrollHeight;
-}
-
-// ── Ringback tone (standard 440+480 Hz, 2 s on / 4 s off cadence) ────────────
+// ── Ringback tone (440+480 Hz, 3.5 s on / 2.5 s off cadence) ─────────────────
 function startRingback() {
   if (!audioCtx || ringing) return;
   ringing = true;
+  ringStartMs = performance.now();
   ringGain = audioCtx.createGain();
   ringGain.gain.value = 0.0001;
   ringGain.connect(audioCtx.destination);
@@ -145,15 +139,15 @@ function startRingback() {
     o.start();
     return o;
   });
-  // Gate the gain on/off so it rings for 2 s then rests for 4 s, repeating.
+  // Gate the gain on/off so it rings for 3.5 s then rests for 2.5 s, repeating.
   const ring = () => {
     if (!ringing || !audioCtx) return;
     const t = audioCtx.currentTime;
     ringGain.gain.cancelScheduledValues(t);
     ringGain.gain.setValueAtTime(0.0001, t);
     ringGain.gain.exponentialRampToValueAtTime(0.12, t + 0.04);   // ring on
-    ringGain.gain.setValueAtTime(0.12, t + 2);
-    ringGain.gain.exponentialRampToValueAtTime(0.0001, t + 2.04); // ring off
+    ringGain.gain.setValueAtTime(0.12, t + 3.5);
+    ringGain.gain.exponentialRampToValueAtTime(0.0001, t + 3.54); // ring off
     ringTimer = setTimeout(ring, 6000);
   };
   ring();
@@ -164,6 +158,7 @@ function stopRingback() {
   if (!ringing) return;
   ringing = false;
   if (ringTimer) { clearTimeout(ringTimer); ringTimer = null; }
+  if (pickupTimer) { clearTimeout(pickupTimer); pickupTimer = null; }
   try {
     const t = audioCtx ? audioCtx.currentTime : 0;
     if (ringGain) { ringGain.gain.cancelScheduledValues(t); ringGain.gain.setValueAtTime(0.0001, t); }
@@ -172,9 +167,28 @@ function stopRingback() {
   ringOscs = null; ringGain = null;
 }
 
+// Once the ring has played long enough, silence it and flush any agent audio
+// that arrived early so the greeting resumes seamlessly from the "pickup".
+function flushPickup() {
+  pickupTimer = null;
+  stopRingback();                // clears pickupTimer too (already null here)
+  const chunks = pickupBuffer;
+  pickupBuffer = [];
+  for (const b of chunks) playMulaw(b);
+}
+
 // ── Playback ────────────────────────────────────────────────────────────────
 function playMulaw(bytes) {
-  if (ringing) stopRingback();   // agent "picked up" — silence the ringing
+  if (ringing) {
+    const remaining = MIN_RING_MS - (performance.now() - ringStartMs);
+    if (remaining > 0) {
+      // Agent answered early — keep ringing and hold this audio until pickup.
+      pickupBuffer.push(bytes);
+      if (!pickupTimer) pickupTimer = setTimeout(flushPickup, remaining);
+      return;
+    }
+    stopRingback();              // rang long enough — "pick up" now
+  }
   const n = bytes.length;
   const f32 = new Float32Array(n);
   for (let i = 0; i < n; i++) f32[i] = mulawToLinear(bytes[i]) / 32768;
@@ -257,6 +271,7 @@ async function start() {
   audioCtx = new (window.AudioContext || window.webkitAudioContext)();
   if (audioCtx.state === "suspended") await audioCtx.resume();
   inBuf = new Float32Array(0); readPos = 0; nextPlayTime = 0;
+  pickupBuffer = [];
   startRingback();
 
   try {
@@ -289,7 +304,8 @@ async function start() {
 
     micBtn.disabled = false;
     micBtn.classList.add("live");
-    micBtn.innerHTML = "Stop";
+    micBtn.innerHTML = ICON_END;
+    micBtn.setAttribute("aria-label", "End call");
     // Keep showing "Calling…" until the agent actually picks up (first audio);
     // stopRingback() then flips the status when the greeting starts.
     if (!ringing) setStatus("🎤 Listening…", "listening");
@@ -300,8 +316,6 @@ async function start() {
       let m; try { m = JSON.parse(ev.data); } catch (e) { return; }
       if (m.type === "clear") { clearPlayback(); setStatus("🎤 Listening…", "listening"); }
       else if (m.type === "hangup") { setStatus("Call ended."); stop(); }
-      else if (m.type === "user")  { addMessage("user", m.text); }
-      else if (m.type === "agent") { addMessage("agent", m.text); }
     } else {
       playMulaw(new Uint8Array(ev.data));
     }
@@ -337,7 +351,8 @@ function teardown() {
   try { audioCtx && audioCtx.close(); } catch (e) {}
   ws = null; audioCtx = null; micStream = null; processor = null; sourceNode = null;
   micBtn.classList.remove("live");
-  micBtn.innerHTML = "Start<br/>Talking";
+  micBtn.innerHTML = ICON_CALL;
+  micBtn.setAttribute("aria-label", "Start call");
   micBtn.disabled = false;
 }
 
@@ -348,6 +363,7 @@ function stop() {
   setStatus("Stopped. Click the mic to talk again.");
 }
 
+micBtn.innerHTML = ICON_CALL;   // start in the green "call" state
 micBtn.addEventListener("click", () => { running ? stop() : start(); });
 </script>
 </body>
