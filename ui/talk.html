@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Jewelry Tech Helpline — Talk to the Agent</title>
+<style>
+  :root {
+    --bg: #0f1220; --panel: #191d33; --accent: #f4c542; --accent2: #6c8cff;
+    --user: #2a3350; --agent: #3a2f14; --text: #e8eaf2; --muted: #9aa0b4;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+    background: radial-gradient(1200px 600px at 50% -10%, #20264a, #0f1220);
+    color: #e8eaf2; min-height: 100vh; display: flex; flex-direction: column;
+    align-items: center; padding: 24px;
+  }
+  h1 { font-size: 20px; font-weight: 650; margin: 8px 0 2px; letter-spacing: .2px; }
+  .sub { color: var(--muted); font-size: 13px; margin-bottom: 22px; }
+  .mic-wrap { display: flex; flex-direction: column; align-items: center; gap: 14px; }
+  #mic {
+    width: 128px; height: 128px; border-radius: 50%; border: none; cursor: pointer;
+    background: linear-gradient(160deg, var(--accent), #e0a92e); color: #201a06;
+    font-size: 15px; font-weight: 700; box-shadow: 0 10px 40px rgba(244,197,66,.28);
+    transition: transform .12s ease, box-shadow .2s ease; position: relative;
+  }
+  #mic:hover { transform: translateY(-2px); }
+  #mic.live {
+    background: linear-gradient(160deg, #ff6b6b, #e0453e); color: #fff;
+    box-shadow: 0 0 0 0 rgba(255,107,107,.5); animation: pulse 1.6s infinite;
+  }
+  #mic:disabled { opacity: .6; cursor: default; animation: none; }
+  @keyframes pulse {
+    0%   { box-shadow: 0 0 0 0 rgba(255,107,107,.45); }
+    70%  { box-shadow: 0 0 0 24px rgba(255,107,107,0); }
+    100% { box-shadow: 0 0 0 0 rgba(255,107,107,0); }
+  }
+  #status { font-size: 14px; color: var(--muted); min-height: 20px; }
+  #status.speaking { color: var(--accent); }
+  #status.listening { color: #7ee0a1; }
+  .log {
+    width: min(680px, 100%); margin-top: 26px; background: var(--panel);
+    border: 1px solid #262c48; border-radius: 14px; padding: 14px; height: 46vh;
+    overflow-y: auto; display: flex; flex-direction: column; gap: 10px;
+  }
+  .msg { padding: 10px 13px; border-radius: 12px; max-width: 82%; font-size: 14.5px; line-height: 1.45; }
+  .msg.user  { align-self: flex-end;   background: var(--user);  border-bottom-right-radius: 4px; }
+  .msg.agent { align-self: flex-start; background: var(--agent); border-bottom-left-radius: 4px; }
+  .msg .who { font-size: 11px; color: var(--muted); margin-bottom: 3px; display: block; }
+  .empty { color: var(--muted); text-align: center; margin: auto; font-size: 13px; }
+  .hint { color: var(--muted); font-size: 12px; margin-top: 14px; max-width: 620px; text-align: center; }
+</style>
+</head>
+<body>
+  <h1>💎 Jewelry Tech Helpline</h1>
+  <div class="sub">Talk to the AI assistant using your microphone</div>
+
+  <div class="mic-wrap">
+    <button id="mic">Start<br/>Talking</button>
+    <div id="status">Click the mic and allow microphone access</div>
+  </div>
+
+  <div class="log" id="log">
+    <div class="empty" id="empty">Your conversation will appear here…</div>
+  </div>
+
+  <div class="hint">
+    Tip: use headphones for the best experience — it stops the agent from hearing
+    its own voice through your speakers.
+  </div>
+
+<script>
+"use strict";
+
+// ── G.711 μ-law codec (matches the server's 8 kHz mu-law pipeline) ──────────
+function linearToMulaw(sample) {          // int16 → μ-law byte
+  const BIAS = 0x84, CLIP = 32635;
+  let sign = (sample >> 8) & 0x80;
+  if (sign) sample = -sample;
+  if (sample > CLIP) sample = CLIP;
+  sample += BIAS;
+  let exponent = 7;
+  for (let mask = 0x4000; (sample & mask) === 0 && exponent > 0; exponent--, mask >>= 1) {}
+  const mantissa = (sample >> (exponent + 3)) & 0x0F;
+  return (~(sign | (exponent << 4) | mantissa)) & 0xFF;
+}
+function mulawToLinear(u) {                // μ-law byte → int16
+  u = ~u & 0xFF;
+  const sign = u & 0x80, exponent = (u >> 4) & 0x07, mantissa = u & 0x0F;
+  let sample = ((mantissa << 3) + 0x84) << exponent;
+  sample -= 0x84;
+  return sign ? -sample : sample;
+}
+
+// ── State ───────────────────────────────────────────────────────────────────
+const micBtn = document.getElementById("mic");
+const statusEl = document.getElementById("status");
+const logEl = document.getElementById("log");
+const emptyEl = document.getElementById("empty");
+
+let ws = null, audioCtx = null, micStream = null;
+let processor = null, sourceNode = null, silentGain = null;
+let running = false;
+
+// Ringback ("calling…") tone: plays from the click until the agent's first
+// audio arrives (the "pickup"), like a phone ringing while it connects.
+let ringOscs = null, ringGain = null, ringTimer = null, ringing = false;
+
+// Playback scheduling (gapless μ-law @ 8 kHz)
+let nextPlayTime = 0;
+const activeSources = new Set();
+
+// Resampler carry state (input rate → 8000)
+let inBuf = new Float32Array(0);
+let readPos = 0;
+
+function setStatus(text, cls) {
+  statusEl.textContent = text;
+  statusEl.className = cls || "";
+}
+
+function addMessage(role, text) {
+  if (emptyEl) emptyEl.remove();
+  const div = document.createElement("div");
+  div.className = "msg " + (role === "user" ? "user" : "agent");
+  div.innerHTML = '<span class="who">' + (role === "user" ? "You" : "Agent") + "</span>";
+  div.appendChild(document.createTextNode(text));
+  logEl.appendChild(div);
+  logEl.scrollTop = logEl.scrollHeight;
+}
+
+// ── Ringback tone (standard 440+480 Hz, 2 s on / 4 s off cadence) ────────────
+function startRingback() {
+  if (!audioCtx || ringing) return;
+  ringing = true;
+  ringGain = audioCtx.createGain();
+  ringGain.gain.value = 0.0001;
+  ringGain.connect(audioCtx.destination);
+  ringOscs = [440, 480].map((f) => {
+    const o = audioCtx.createOscillator();
+    o.type = "sine";
+    o.frequency.value = f;
+    o.connect(ringGain);
+    o.start();
+    return o;
+  });
+  // Gate the gain on/off so it rings for 2 s then rests for 4 s, repeating.
+  const ring = () => {
+    if (!ringing || !audioCtx) return;
+    const t = audioCtx.currentTime;
+    ringGain.gain.cancelScheduledValues(t);
+    ringGain.gain.setValueAtTime(0.0001, t);
+    ringGain.gain.exponentialRampToValueAtTime(0.12, t + 0.04);   // ring on
+    ringGain.gain.setValueAtTime(0.12, t + 2);
+    ringGain.gain.exponentialRampToValueAtTime(0.0001, t + 2.04); // ring off
+    ringTimer = setTimeout(ring, 6000);
+  };
+  ring();
+  setStatus("📞 Calling the agent…");
+}
+
+function stopRingback() {
+  if (!ringing) return;
+  ringing = false;
+  if (ringTimer) { clearTimeout(ringTimer); ringTimer = null; }
+  try {
+    const t = audioCtx ? audioCtx.currentTime : 0;
+    if (ringGain) { ringGain.gain.cancelScheduledValues(t); ringGain.gain.setValueAtTime(0.0001, t); }
+  } catch (e) {}
+  try { if (ringOscs) ringOscs.forEach((o) => { try { o.stop(); } catch (e) {} }); } catch (e) {}
+  ringOscs = null; ringGain = null;
+}
+
+// ── Playback ────────────────────────────────────────────────────────────────
+function playMulaw(bytes) {
+  if (ringing) stopRingback();   // agent "picked up" — silence the ringing
+  const n = bytes.length;
+  const f32 = new Float32Array(n);
+  for (let i = 0; i < n; i++) f32[i] = mulawToLinear(bytes[i]) / 32768;
+  const buf = audioCtx.createBuffer(1, n, 8000);
+  buf.copyToChannel(f32, 0);
+  const src = audioCtx.createBufferSource();
+  src.buffer = buf;
+  src.connect(audioCtx.destination);
+  const now = audioCtx.currentTime;
+  if (nextPlayTime < now) nextPlayTime = now + 0.04;
+  src.start(nextPlayTime);
+  nextPlayTime += buf.duration;
+  activeSources.add(src);
+  src.onended = () => activeSources.delete(src);
+  setStatus("🔊 Agent speaking…", "speaking");
+}
+
+function clearPlayback() {                 // barge-in: stop everything queued
+  for (const s of activeSources) { try { s.stop(); } catch (e) {} }
+  activeSources.clear();
+  nextPlayTime = 0;
+}
+
+// ── Capture: downsample to 8 kHz + μ-law encode ─────────────────────────────
+function resampleTo8k(input, inRate) {
+  const merged = new Float32Array(inBuf.length + input.length);
+  merged.set(inBuf, 0);
+  merged.set(input, inBuf.length);
+  inBuf = merged;
+  const ratio = inRate / 8000;
+  const out = [];
+  while (readPos + 1 < inBuf.length) {
+    const i = Math.floor(readPos);
+    const frac = readPos - i;
+    out.push(inBuf[i] * (1 - frac) + inBuf[i + 1] * frac);
+    readPos += ratio;
+  }
+  const keep = Math.floor(readPos);
+  inBuf = inBuf.slice(keep);
+  readPos -= keep;
+  return out;
+}
+
+function onAudio(e) {
+  if (!running || !ws || ws.readyState !== WebSocket.OPEN) return;
+  const input = e.inputBuffer.getChannelData(0);
+  const down = resampleTo8k(input, audioCtx.sampleRate);
+  if (!down.length) return;
+  const mu = new Uint8Array(down.length);
+  for (let i = 0; i < down.length; i++) {
+    let s = Math.max(-1, Math.min(1, down[i]));
+    mu[i] = linearToMulaw(Math.round(s * 32767));
+  }
+  ws.send(mu.buffer);
+}
+
+// ── Session lifecycle ───────────────────────────────────────────────────────
+// The WebSocket lives at /ws on THIS page's own origin, so the page MUST be
+// served by web_app.py (http://localhost:5000). If it is opened as a raw file
+// (file://) or through an editor "live preview" on another port (e.g. VS Code
+// Live Server on :5500), the HTML still loads but there is no /ws there and the
+// socket fails. wsEndpoint() returns null in those cases so we can explain it.
+function wsEndpoint() {
+  if (location.protocol === "file:" || !location.host) return null;
+  const proto = location.protocol === "https:" ? "wss" : "ws";
+  return proto + "://" + location.host + "/ws";
+}
+
+async function start() {
+  const wsUrl = wsEndpoint();
+  if (!wsUrl) {
+    setStatus("Open http://localhost:5000 (run: python web_app.py) — not the .html file itself.");
+    return;
+  }
+
+  micBtn.disabled = true;
+
+  // Create the audio context on the click gesture and start the "calling" ring
+  // immediately — before we even ask for the mic — so there is instant feedback.
+  audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  if (audioCtx.state === "suspended") await audioCtx.resume();
+  inBuf = new Float32Array(0); readPos = 0; nextPlayTime = 0;
+  startRingback();
+
+  try {
+    micStream = await navigator.mediaDevices.getUserMedia({
+      audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true, channelCount: 1 },
+    });
+  } catch (err) {
+    teardown();
+    setStatus("Microphone blocked. Allow the mic (lock icon in the address bar), then click again.");
+    return;
+  }
+
+  let opened = false;
+  ws = new WebSocket(wsUrl);
+  ws.binaryType = "arraybuffer";
+
+  ws.onopen = () => {
+    opened = true;
+    running = true;
+    // Build the capture graph: mic → script processor (routed to a muted gain
+    // node so onaudioprocess fires without playing the mic back to the speaker).
+    sourceNode = audioCtx.createMediaStreamSource(micStream);
+    processor = audioCtx.createScriptProcessor(4096, 1, 1);
+    silentGain = audioCtx.createGain();
+    silentGain.gain.value = 0;
+    processor.onaudioprocess = onAudio;
+    sourceNode.connect(processor);
+    processor.connect(silentGain);
+    silentGain.connect(audioCtx.destination);
+
+    micBtn.disabled = false;
+    micBtn.classList.add("live");
+    micBtn.innerHTML = "Stop";
+    // Keep showing "Calling…" until the agent actually picks up (first audio);
+    // stopRingback() then flips the status when the greeting starts.
+    if (!ringing) setStatus("🎤 Listening…", "listening");
+  };
+
+  ws.onmessage = (ev) => {
+    if (typeof ev.data === "string") {
+      let m; try { m = JSON.parse(ev.data); } catch (e) { return; }
+      if (m.type === "clear") { clearPlayback(); setStatus("🎤 Listening…", "listening"); }
+      else if (m.type === "hangup") { setStatus("Call ended."); stop(); }
+      else if (m.type === "user")  { addMessage("user", m.text); }
+      else if (m.type === "agent") { addMessage("agent", m.text); }
+    } else {
+      playMulaw(new Uint8Array(ev.data));
+    }
+  };
+
+  ws.onerror = () => {
+    if (!opened) setStatus("Can't reach the agent at " + wsUrl + " — is web_app.py running on this port?");
+  };
+  ws.onclose = (ev) => {
+    if (!opened) {
+      // The socket never opened: wrong port/origin or the backend isn't running.
+      teardown();
+      setStatus("Connection failed to " + wsUrl +
+        (ev && ev.code ? " (code " + ev.code + ")" : "") +
+        ". Run 'python web_app.py' and open http://localhost:5000.");
+      return;
+    }
+    if (running) stop();
+  };
+}
+
+// Release audio/mic/socket resources WITHOUT touching the status line, so a
+// diagnostic message set by the caller survives.
+function teardown() {
+  running = false;
+  stopRingback();
+  clearPlayback();
+  try { processor && (processor.onaudioprocess = null); } catch (e) {}
+  try { sourceNode && sourceNode.disconnect(); } catch (e) {}
+  try { processor && processor.disconnect(); } catch (e) {}
+  try { silentGain && silentGain.disconnect(); } catch (e) {}
+  try { micStream && micStream.getTracks().forEach((t) => t.stop()); } catch (e) {}
+  try { audioCtx && audioCtx.close(); } catch (e) {}
+  ws = null; audioCtx = null; micStream = null; processor = null; sourceNode = null;
+  micBtn.classList.remove("live");
+  micBtn.innerHTML = "Start<br/>Talking";
+  micBtn.disabled = false;
+}
+
+function stop() {
+  try { if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: "stop" })); } catch (e) {}
+  try { ws && ws.close(); } catch (e) {}
+  teardown();
+  setStatus("Stopped. Click the mic to talk again.");
+}
+
+micBtn.addEventListener("click", () => { running ? stop() : start(); });
+</script>
+</body>
+</html>

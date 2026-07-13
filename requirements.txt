@@ -1,0 +1,9 @@
+fastapi>=0.111
+uvicorn>=0.30
+python-multipart>=0.0.9
+requests>=2.31
+websockets>=13.0
+aiohttp>=3.9
+openai>=1.40
+pymongo>=4.10
+python-dotenv>=1.0
