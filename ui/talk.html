@@ -142,12 +142,16 @@ function startRingback() {
   // Gate the gain on/off so it rings for 3.5 s then rests for 2.5 s, repeating.
   const ring = () => {
     if (!ringing || !audioCtx) return;
-    const t = audioCtx.currentTime;
-    ringGain.gain.cancelScheduledValues(t);
-    ringGain.gain.setValueAtTime(0.0001, t);
-    ringGain.gain.exponentialRampToValueAtTime(0.12, t + 0.04);   // ring on
-    ringGain.gain.setValueAtTime(0.12, t + 3.5);
-    ringGain.gain.exponentialRampToValueAtTime(0.0001, t + 3.54); // ring off
+    // A backgrounded tab (common on mobile) suspends the context; nudge it back.
+    if (audioCtx.state === "suspended") { try { audioCtx.resume(); } catch (e) {} }
+    try {
+      const t = audioCtx.currentTime;
+      ringGain.gain.cancelScheduledValues(t);
+      ringGain.gain.setValueAtTime(0.0001, t);
+      ringGain.gain.exponentialRampToValueAtTime(0.12, t + 0.04);   // ring on
+      ringGain.gain.setValueAtTime(0.12, t + 3.5);
+      ringGain.gain.exponentialRampToValueAtTime(0.0001, t + 3.54); // ring off
+    } catch (e) {}
     ringTimer = setTimeout(ring, 6000);
   };
   ring();
@@ -189,10 +193,25 @@ function playMulaw(bytes) {
     }
     stopRingback();              // rang long enough — "pick up" now
   }
+  // Mobile browsers (esp. iOS Safari) glitch or drop playback when an
+  // AudioBuffer's rate differs from the context's native rate. Build the
+  // buffer at the context rate and linearly upsample the 8 kHz μ-law instead
+  // of handing the browser an 8 kHz buffer to resample.
+  if (audioCtx.state === "suspended") { try { audioCtx.resume(); } catch (e) {} }
   const n = bytes.length;
-  const f32 = new Float32Array(n);
-  for (let i = 0; i < n; i++) f32[i] = mulawToLinear(bytes[i]) / 32768;
-  const buf = audioCtx.createBuffer(1, n, 8000);
+  const outRate = audioCtx.sampleRate || 8000;
+  const ratio = outRate / 8000;
+  const outLen = Math.max(1, Math.round(n * ratio));
+  const f32 = new Float32Array(outLen);
+  for (let i = 0; i < outLen; i++) {
+    const srcPos = i / ratio;
+    const i0 = Math.floor(srcPos);
+    const frac = srcPos - i0;
+    const s0 = mulawToLinear(bytes[i0]) / 32768;
+    const s1 = mulawToLinear(bytes[Math.min(i0 + 1, n - 1)]) / 32768;
+    f32[i] = s0 * (1 - frac) + s1 * frac;
+  }
+  const buf = audioCtx.createBuffer(1, outLen, outRate);
   buf.copyToChannel(f32, 0);
   const src = audioCtx.createBufferSource();
   src.buffer = buf;
@@ -270,6 +289,15 @@ async function start() {
   // immediately — before we even ask for the mic — so there is instant feedback.
   audioCtx = new (window.AudioContext || window.webkitAudioContext)();
   if (audioCtx.state === "suspended") await audioCtx.resume();
+  // iOS Safari only truly unlocks audio output once a real buffer has played
+  // inside the tap gesture — resuming the context alone isn't enough, and
+  // without this the ring/greeting can be swallowed on the first call.
+  try {
+    const unlock = audioCtx.createBufferSource();
+    unlock.buffer = audioCtx.createBuffer(1, 1, audioCtx.sampleRate || 8000);
+    unlock.connect(audioCtx.destination);
+    unlock.start(0);
+  } catch (e) {}
   inBuf = new Float32Array(0); readPos = 0; nextPlayTime = 0;
   pickupBuffer = [];
   startRingback();
