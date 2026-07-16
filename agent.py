@@ -313,6 +313,9 @@ Q23: How much time does it take to calculate after scanning the data?
 A: It takes a maximum of two to three seconds, depending on the quality of your internet connection. If the connection quality is good and high-speed, it takes approximately two seconds per tag to complete the process.
 Q24: Why did Amit make this software?
 A: Amit frequently visited friends and colleagues in the jewelry industry, including retailers and showroom owners. During these visits, he realized that calculating the final price or MRP was a significant pain point for the salespeople and staff in the showroom. Recognizing the headache this caused the owners, he saw an opportunity to solve the problem. He used his expertise to create this technology-driven app to eliminate that pain and completely streamline the calculation process.
+Q25: So, what is the benefit of this?
+A: Sir, the benefit is that the time you spend on manual calculations will be drastically reduced and completely error-free. Even a junior salesman will be able to easily focus on sales rather than calculations, because the software will automatically detect the MRP.
+
 
 
 

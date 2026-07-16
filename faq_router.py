@@ -253,6 +253,13 @@ CANONICAL_ANSWERS: dict[str, dict[str, str]] = {
              "his expertise to build this app to remove that pain and streamline "
              "the calculation process.",
     },
+    "Q25": {
+        "q": "So, what is the benefit of this?",
+        "a": "The benefit is that the time spent on manual calculations is "
+             "drastically reduced and the result is error-free. Even a junior "
+             "salesman can focus on sales rather than calculations, because the "
+             "software detects the MRP automatically.",
+    },
 }
 
 # Fixed lines for non-ANSWER actions — deterministic by construction.
