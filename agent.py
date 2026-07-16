@@ -292,8 +292,8 @@ Q15: Can your software convert carats to grams and grams to carats?
 A: Yes, sir. Our software can easily convert carats to grams and grams to carats. All the required formulas are already predefined in the system, so the conversion is automatic, fast, and accurate. You simply enter the value, and the software instantly provides the correct result.
 Q16:I calculate the MRP or final price of my jewelry tags by applying a wastage percentage. Can your software handle that as well?
 A: Yes, sir. Our software fully supports wastage calculations. You only need to enter the wastage percentage in the **Wastage** field according to the jewelry's purity. The software automatically applies the predefined formula, calculates the wastage, and instantly generates the correct final price or MRP with complete accuracy.
-Q17: What if my jewelry tag only contains the color and clarity details, but not the rates? How will your software calculate the final price?
-A: Yes, sir. In that case, the software scans the color and clarity information printed on the tag. It then automatically matches those values with the rates you've already configured in the backend. Based on those predefined rates, the software instantly calculates and provides the correct MRP or final price without requiring any manual input.
+Q17: What if my jewelry tag only contains the diamond color and clarity details, but not the rates? How will your software calculate the final price?
+A: Yes, sir. In that case, the software scans the diamond color and clarity information printed on the tag. It then automatically matches those values with the rates you've already configured in the backend. Based on those predefined rates, the software instantly calculates and provides the correct MRP or final price without requiring any manual input.
 Q18: Can your software also manage our inventory?
 A: No, sir. At the moment, inventory management is not available in our software. However, we are actively working on this feature, and it will be launched very soon in a future update.
 Q19: What are the benefits of using your software?

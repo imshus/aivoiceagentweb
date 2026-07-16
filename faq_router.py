@@ -194,7 +194,7 @@ CANONICAL_ANSWERS: dict[str, dict[str, str]] = {
              "wastage, and generates the correct final price or MRP.",
     },
     "Q17": {
-        "q": "What if my jewelry tag only contains color and clarity details, but "
+        "q": "What if my jewelry tag only contains diamond color and clarity details, but "
              "not the rates? How will the software calculate the final price?",
         "a": "The software scans the color and clarity information printed on the "
              "tag and matches those values with the rates you have already "
