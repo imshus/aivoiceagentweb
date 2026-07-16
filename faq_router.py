@@ -196,7 +196,7 @@ CANONICAL_ANSWERS: dict[str, dict[str, str]] = {
     "Q17": {
         "q": "What if my jewelry tag only contains diamond color and clarity details, but "
              "not the rates? How will the software calculate the final price?",
-        "a": "The software scans the color and clarity information printed on the "
+        "a": "The software scans the diamond color and clarity information printed on the "
              "tag and matches those values with the rates you have already "
              "configured in the backend. Based on those predefined rates, it "
              "calculates the correct MRP without any manual input.",
