@@ -92,15 +92,22 @@ CANONICAL_ANSWERS: dict[str, dict[str, str]] = {
              "calculation automatically with a single click in under two seconds.",
     },
     "Q3": {
-        "q": "How does the software get the gold rates? / Where do these rates "
+        "q": {"subq1": "How does the software get the gold rates? / Where do these rates "
              "come from?",
-        "a": "The software integrates directly with real-time market rates such "
+             "subq2": "How does the software get the metal rate? / Where do these rates",
+             "subq3": "How does the software get the metal bhao? / Where do these rates",
+             "subq4": "How does the software get the current ke bhao? / Where do these rates",
+             "subq5": "How does the software get the yellow bhao? / Where do these rates",
+             "subq6": "How does the software get the yellow rate? / Where do these rates",
+             "subq7": "How does the software get the pile ka bhao? / Where do these rates",
+             },
+        "a":"The software integrates directly with real-time market rates such "
              "as MCX, RTGS, and local cash market rates. You select whichever "
              "rate standard your store follows — MCX, RTGS, or cash rate — to "
              "calculate your jewelry prices. This is a one-time setup that you "
              "configure once at the beginning. After that the process is fully "
              "automatic: the software pulls the active rates on its own every "
-             "day, without you entering them manually.",
+             "day, without you entering them manually."
     },
     "Q4": {
         "q": "Can it calculate MRP in both 14 Karat and 18 Karat gold?",
