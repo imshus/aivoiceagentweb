@@ -33,7 +33,8 @@ from openai import AsyncOpenAI
 
 import faq_router as fr
 from faq_router import (CANONICAL_ANSWERS, REPLY_LANGUAGE, RENDER_MODEL,
-                        _RENDER_SYSTEM, _RENDER_NUDGE, _entry_hash)
+                        _RENDER_SYSTEM, _RENDER_NUDGE, _entry_hash,
+                        entry_question)
 
 
 async def _one(client, model, temperature, entry, earlier):
@@ -44,7 +45,7 @@ async def _one(client, model, temperature, entry, earlier):
         diff = ("\nYou have ALREADY given these wordings for this same answer; "
                 "produce a CLEARLY DIFFERENT one — different sentence shape and "
                 "word choices, SAME facts, no new facts:\n" + prior + "\n")
-    user = (f"Caller said: {entry['q']}\n\n"
+    user = (f"Caller said: {entry_question(entry, all_forms=False)}\n\n"
             f"APPROVED ANSWER (single source of truth):\n{entry['a']}\n"
             f"{diff}\n{_RENDER_NUDGE}")
     resp = await client.chat.completions.create(
@@ -94,7 +95,7 @@ async def main():
             variants.append(text)
         entries[qid] = {"hash": _entry_hash(qid), "variants": variants}
         print(f"── {qid} ({len(variants)} variants) "
-              f"— {entry['q']}")
+              f"— {entry_question(entry, all_forms=False)}")
         for v in variants:
             print(f"     • {v}")
         print()

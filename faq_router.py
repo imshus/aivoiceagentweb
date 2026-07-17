@@ -73,7 +73,10 @@ _client = AsyncOpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 # ── The single source of truth ───────────────────────────────────────────────
 # MUST stay in sync with the Q-ids inside agent.AGENT_SYSTEM_PROMPT — agent.py
 # warns loudly at startup if the two drift.
-CANONICAL_ANSWERS: dict[str, dict[str, str]] = {
+# An entry's "q" is usually one string; it may instead be a dict of alternative
+# phrasings ({"subq1": ..., "subq2": ...}) when callers ask the same thing many
+# ways (see Q3). Always read it through entry_question(), never entry["q"].
+CANONICAL_ANSWERS: dict[str, dict] = {
     "Q1": {
         "q": "What is this Tag Scanning Software and what does it do?",
         "a": "It is a jewelry software that scans data written on jewelry tags and "
@@ -92,16 +95,22 @@ CANONICAL_ANSWERS: dict[str, dict[str, str]] = {
              "calculation automatically with a single click in under two seconds.",
     },
     "Q3": {
-        "q": {"subq1": "How does the software get the gold rates? / Where do these rates "
-             "come from?",
-             "subq2": "How does the software get the metal rate? / Where do these rates",
-             "subq3": "How does the software get the metal bhao? / Where do these rates",
-             "subq4": "How does the software get the current ke bhao? / Where do these rates",
-             "subq5": "How does the software get the yellow bhao? / Where do these rates",
-             "subq6": "How does the software get the yellow rate? / Where do these rates",
-             "subq7": "How does the software get the pile ka bhao? / Where do these rates",
-             },
-        "a":"The software integrates directly with real-time market rates such "
+        "q": {"subq1": "How does the software get the gold rates? / Where do "
+                       "these rates come from?",
+              "subq2": "How does the software get the metal rate? / Where do "
+                       "these rates come from?",
+              "subq3": "How does the software get the metal bhao? / Where do "
+                       "these rates come from?",
+              "subq4": "How does the software get the current ke bhao? / Where "
+                       "do these rates come from?",
+              "subq5": "How does the software get the yellow bhao? / Where do "
+                       "these rates come from?",
+              "subq6": "How does the software get the yellow rate? / Where do "
+                       "these rates come from?",
+              "subq7": "How does the software get the pile ka bhao? / Where do "
+                       "these rates come from?",
+              },
+        "a": "The software integrates directly with real-time market rates such "
              "as MCX, RTGS, and local cash market rates. You select whichever "
              "rate standard your store follows — MCX, RTGS, or cash rate — to "
              "calculate your jewelry prices. This is a one-time setup that you "
@@ -269,6 +278,24 @@ CANONICAL_ANSWERS: dict[str, dict[str, str]] = {
     },
 }
 
+def entry_question(entry: dict, all_forms: bool = True) -> str:
+    """An entry's question as ONE plain string — the only safe way to read "q".
+
+    "q" is normally a string, but an entry may carry a dict of alternative
+    phrasings ({"subq1": ..., "subq2": ...} — e.g. Q3's rate/bhao synonyms).
+    all_forms=True joins every phrasing with " | " (classifier menu: synonyms
+    improve matching); all_forms=False returns just the first phrasing
+    (render prompts and logs, where one representative wording is enough).
+    """
+    q = entry.get("q", "")
+    if isinstance(q, dict):
+        forms = [str(v).strip() for v in q.values() if str(v).strip()]
+        if not forms:
+            return ""
+        return " | ".join(forms) if all_forms else forms[0]
+    return str(q)
+
+
 # Fixed lines for non-ANSWER actions — deterministic by construction.
 # OWNER'S CALL (2026-07-04): ONE decline line for everything unanswerable —
 # both off-topic questions (DECLINE) and about-the-product-but-not-in-bank
@@ -383,8 +410,10 @@ _LOCAL_RULES: list[tuple[str, tuple[str, ...]]] = [
             r"kaise\s+(?:kaam|work)|कैसे\s+काम)")),
     ("Q2", (r"(?:manual|मैन्युअ?ल|मैनुअल)",
             r"(?:calc|कैल्?कुलेश|hisaa?b|हिसाब)")),
-    # NOTE: Q3 ("how exactly does it calculate") is deliberately matcher-less —
-    # its phrasing overlaps Q1/Q5, so the LLM classifier owns it.
+    # NOTE: Q3 ("where do the rates come from" + its rate/bhao sub-phrasings)
+    # is deliberately matcher-less — its wording sits one word away from
+    # "aaj ka bhaav" (today's gold price → ROUTE, blocked above), so the LLM
+    # classifier owns it.
     ("Q4", (r"\brtgs\b|आर\s?टी\s?जी\s?एस|"
             r"(?:cash|कैश)\W{0,12}(?:rates?|रेट)|(?:rates?|रेट)\W{0,12}(?:cash|कैश)",)),
     ("Q5", (r"(?:gross|net|ग्रॉस|नेट)\W{0,20}(?:weight|वेट|वज़न|वजन)|"
@@ -568,7 +597,8 @@ def try_fast_answer(user_text: str, state: dict) -> str | None:
     return text
 
 
-_FAQ_MENU = "\n".join(f'{qid}: {v["q"]}' for qid, v in CANONICAL_ANSWERS.items())
+_FAQ_MENU = "\n".join(f"{qid}: {entry_question(v)}"
+                      for qid, v in CANONICAL_ANSWERS.items())
 
 _ASK_LANG = ("in HINGLISH — Hindi + English mixed in one sentence, Hindi in "
              "Devanagari (e.g. 'आप 14 karat के लिए पूछ रहे हैं या 18 karat के?')"
@@ -751,7 +781,7 @@ async def _classify(history: list[dict], state: dict) -> dict:
     last_id = state.get("last_answer_id")
     if last_id and last_id in CANONICAL_ANSWERS:
         context = (f"\nLast answered entry: {last_id} "
-                   f"({CANONICAL_ANSWERS[last_id]['q']})")
+                   f"({entry_question(CANONICAL_ANSWERS[last_id], all_forms=False)})")
     if len(user_turns) > 1:
         context += f"\nPrevious caller turn: {user_turns[-2]}"
     agent_turns = [m["content"] for m in history if m["role"] == "assistant"]
