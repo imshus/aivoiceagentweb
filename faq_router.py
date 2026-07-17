@@ -26,6 +26,11 @@ Latency tiers (each optional, each falls back to the next):
   Tier 2  speculate() — the classifier starts on the LIVE partial transcript
           and is reused if the finished turn matches, hiding its latency.
   Tier 3  the original classify → render pipeline, unchanged.
+
+Sub-question support: an entry's "q" may be a plain string OR a dict of
+phrasings {"subq1": ..., "subq2": ...}. subq1 is always the canonical wording.
+Read "q" through canon_q()/all_q() — never entry["q"] directly — so a dict
+never leaks into a prompt. "a" stays a plain string.
 """
 import asyncio
 import hashlib
@@ -73,9 +78,6 @@ _client = AsyncOpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 # ── The single source of truth ───────────────────────────────────────────────
 # MUST stay in sync with the Q-ids inside agent.AGENT_SYSTEM_PROMPT — agent.py
 # warns loudly at startup if the two drift.
-# An entry's "q" is usually one string; it may instead be a dict of alternative
-# phrasings ({"subq1": ..., "subq2": ...}) when callers ask the same thing many
-# ways (see Q3). Always read it through entry_question(), never entry["q"].
 CANONICAL_ANSWERS: dict[str, dict] = {
     "Q1": {
         "q": "What is this Tag Scanning Software and what does it do?",
@@ -95,28 +97,22 @@ CANONICAL_ANSWERS: dict[str, dict] = {
              "calculation automatically with a single click in under two seconds.",
     },
     "Q3": {
-        "q": {"subq1": "How does the software get the gold rates? / Where do "
-                       "these rates come from?",
-              "subq2": "How does the software get the metal rate? / Where do "
-                       "these rates come from?",
-              "subq3": "How does the software get the metal bhao? / Where do "
-                       "these rates come from?",
-              "subq4": "How does the software get the current ke bhao? / Where "
-                       "do these rates come from?",
-              "subq5": "How does the software get the yellow bhao? / Where do "
-                       "these rates come from?",
-              "subq6": "How does the software get the yellow rate? / Where do "
-                       "these rates come from?",
-              "subq7": "How does the software get the pile ka bhao? / Where do "
-                       "these rates come from?",
-              },
+        "q": {"subq1": "How does the software get the gold rates? / Where do these rates "
+             "come from?",
+             "subq2": "How does the software get the metal rate? / Where do these rates",
+             "subq3": "How does the software get the metal bhao? / Where do these rates",
+             "subq4": "How does the software get the current ke bhao? / Where do these rates",
+             "subq5": "How does the software get the yellow bhao? / Where do these rates",
+             "subq6": "How does the software get the yellow rate? / Where do these rates",
+             "subq7": "How does the software get the peele ka bhao? / Where do these rates",
+             },
         "a": "The software integrates directly with real-time market rates such "
              "as MCX, RTGS, and local cash market rates. You select whichever "
              "rate standard your store follows — MCX, RTGS, or cash rate — to "
              "calculate your jewelry prices. This is a one-time setup that you "
              "configure once at the beginning. After that the process is fully "
              "automatic: the software pulls the active rates on its own every "
-             "day, without you entering them manually."
+             "day, without you entering them manually.",
     },
     "Q4": {
         "q": "Can it calculate MRP in both 14 Karat and 18 Karat gold?",
@@ -210,12 +206,12 @@ CANONICAL_ANSWERS: dict[str, dict] = {
              "wastage, and generates the correct final price or MRP.",
     },
     "Q17": {
-        "q": "What if my jewelry tag only contains diamond color and clarity details, but "
-             "not the rates? How will the software calculate the final price?",
-        "a": "The software scans the diamond color and clarity information printed on the "
-             "tag and matches those values with the rates you have already "
-             "configured in the backend. Based on those predefined rates, it "
-             "calculates the correct MRP without any manual input.",
+        "q": "My diamond tag shows only the color and clarity grade, not a rate. "
+             "How does the software price it?",
+        "a": "The software reads the diamond color and clarity grade printed on "
+             "the tag and looks up the matching rate from the rate chart you have "
+             "set for each grade. It then applies that rate and calculates the "
+             "correct MRP, with no manual input.",
     },
     "Q18": {
         "q": "Can the software also manage our inventory?",
@@ -276,24 +272,81 @@ CANONICAL_ANSWERS: dict[str, dict] = {
              "salesman can focus on sales rather than calculations, because the "
              "software detects the MRP automatically.",
     },
+    "Q26": {
+        "q": "How are making charges applied in the software? What is the option "
+             "for adding making charges?",
+        "a": "The making charge printed on your tags is scanned automatically and "
+             "included in the calculation. Otherwise, whatever making charge you "
+             "have set for each item in the backend, the software applies that to "
+             "the final price and calculates it.",
+    },
+    "Q27": {
+        "q": "How does the software know the diamond rates?",
+        "a": "Diamond rates come from one of two places. If a rate is written on "
+             "the tag, the software scans it from there and calculates "
+             "automatically. If not, you enter your diamond rates once in Master "
+             "Settings, and after that the software takes them from the backend "
+             "and calculates on its own.",
+    },
+    "Q28": {
+        "q": "How does the software know whether an item is 14 Karat or 18 Karat?",
+        "a": "Whatever karat is written on the tag, the software automatically "
+             "detects it from there and applies the calculation according to that "
+             "karat.",
+    },
+    "Q29": {
+        "q": "Do I have to enter the stone weight?",
+        "a": "If the stone weight is written on your tag, the software detects it "
+             "automatically. Only if it is not written on the tag do you have to "
+             "enter it yourself.",
+    },
+    "Q30": {
+        "q": "How long does it take to activate the software? Will someone come "
+             "to do it, or what do I have to do?",
+        "a": "Activating the software takes about five to ten minutes at most. "
+             "Nobody comes in person; you do it yourself. A twenty-four-hour "
+             "helpline is available to guide you through it, so you can complete "
+             "the integration right away in those few minutes.",
+    },
+    "Q31": {
+        "q": "Does this software calculate only diamond jewelry, or which types "
+             "of jewelry can it calculate?",
+        "a": "For now the software calculates gold jewelry, diamond jewelry, "
+             "antique jewelry, and polki jewelry. Silver jewelry is not an option "
+             "yet, but that option is being added in an update shortly.",
+    },
+    "Q32": {
+        "q": "What admin controls are available for employees?",
+        "a": "The admin controls several things for each employee: which rates "
+             "the employee can see, changing the diamond rates, and whether "
+             "diamond rates are shown or hidden, along with other settings the "
+             "admin manages.",
+    },
 }
 
-def entry_question(entry: dict, all_forms: bool = True) -> str:
-    """An entry's question as ONE plain string — the only safe way to read "q".
 
-    "q" is normally a string, but an entry may carry a dict of alternative
-    phrasings ({"subq1": ..., "subq2": ...} — e.g. Q3's rate/bhao synonyms).
-    all_forms=True joins every phrasing with " | " (classifier menu: synonyms
-    improve matching); all_forms=False returns just the first phrasing
-    (render prompts and logs, where one representative wording is enough).
-    """
-    q = entry.get("q", "")
-    if isinstance(q, dict):
-        forms = [str(v).strip() for v in q.values() if str(v).strip()]
-        if not forms:
-            return ""
-        return " | ".join(forms) if all_forms else forms[0]
-    return str(q)
+# ── Sub-question accessors ───────────────────────────────────────────────────
+# An entry's "q" may be a plain string OR a {"subq1": ..., "subq2": ...} dict of
+# phrasings; subq1 is always the canonical wording. "a" is always a plain
+# string. Read "q" through these — never entry["q"] directly — so a dict never
+# leaks into a classifier prompt or a context line.
+def canon_q(entry: dict) -> str:
+    """Canonical question, whether "q" is a plain string or a subq-dict."""
+    q = entry["q"]
+    return next(iter(q.values())) if isinstance(q, dict) else q
+
+
+def all_q(entry: dict) -> list[str]:
+    """Every phrasing of an entry's question (for the classifier menu)."""
+    q = entry["q"]
+    return list(q.values()) if isinstance(q, dict) else [q]
+
+
+def entry_question(entry: dict, all_forms: bool = False) -> str:
+    """Question string for an entry. all_forms=True joins every phrasing with ' / '."""
+    if all_forms:
+        return " / ".join(all_q(entry))
+    return canon_q(entry)
 
 
 # Fixed lines for non-ANSWER actions — deterministic by construction.
@@ -410,10 +463,9 @@ _LOCAL_RULES: list[tuple[str, tuple[str, ...]]] = [
             r"kaise\s+(?:kaam|work)|कैसे\s+काम)")),
     ("Q2", (r"(?:manual|मैन्युअ?ल|मैनुअल)",
             r"(?:calc|कैल्?कुलेश|hisaa?b|हिसाब)")),
-    # NOTE: Q3 ("where do the rates come from" + its rate/bhao sub-phrasings)
-    # is deliberately matcher-less — its wording sits one word away from
-    # "aaj ka bhaav" (today's gold price → ROUTE, blocked above), so the LLM
-    # classifier owns it.
+    # NOTE: Q3 (rate source) is deliberately matcher-less — its "bhaav"/"metal
+    # rate" phrasings sit close to "today's gold price" (which must ROUTE) and
+    # are blocked by _MATCH_BLOCKERS anyway; the classifier owns Q3 via the menu.
     ("Q4", (r"\brtgs\b|आर\s?टी\s?जी\s?एस|"
             r"(?:cash|कैश)\W{0,12}(?:rates?|रेट)|(?:rates?|रेट)\W{0,12}(?:cash|कैश)",)),
     ("Q5", (r"(?:gross|net|ग्रॉस|नेट)\W{0,20}(?:weight|वेट|वज़न|वजन)|"
@@ -443,9 +495,8 @@ def local_match(text: str) -> str | None:
     hits = {qid for qid, groups in _LOCAL_MATCHERS
             if all(g.search(t) for g in groups)}
     # Q1 ("what is this software / what does it do") is the generic catch-all;
-    # its bare "...kya hai" can also latch onto a more specific question
-    # ("software ke benefits kya hain" → Q15). When a specific entry ALSO
-    # matches, the specific one owns the turn, so drop Q1 from the tie.
+    # its bare "...kya hai" can also latch onto a more specific question. When a
+    # specific entry ALSO matches, the specific one owns the turn, so drop Q1.
     if len(hits) > 1:
         hits.discard("Q1")
     if len(hits) == 1:
@@ -597,8 +648,18 @@ def try_fast_answer(user_text: str, state: dict) -> str | None:
     return text
 
 
-_FAQ_MENU = "\n".join(f"{qid}: {entry_question(v)}"
-                      for qid, v in CANONICAL_ANSWERS.items())
+def _menu_line(qid: str, entry: dict) -> str:
+    """One classifier-menu line. For a subq-dict entry, surface EVERY phrasing
+    so the classifier can map any of them to this id; the trailing
+    ' / Where do these rates' fragment on each subq is trimmed for readability.
+    """
+    phrasings = [p.split(" / ")[0].strip() for p in all_q(entry)]
+    if len(phrasings) == 1:
+        return f"{qid}: {phrasings[0]}"
+    return f"{qid}: {phrasings[0]} (also phrased: " + "; ".join(phrasings[1:]) + ")"
+
+
+_FAQ_MENU = "\n".join(_menu_line(qid, v) for qid, v in CANONICAL_ANSWERS.items())
 
 _ASK_LANG = ("in HINGLISH — Hindi + English mixed in one sentence, Hindi in "
              "Devanagari (e.g. 'आप 14 karat के लिए पूछ रहे हैं या 18 karat के?')"
@@ -781,7 +842,7 @@ async def _classify(history: list[dict], state: dict) -> dict:
     last_id = state.get("last_answer_id")
     if last_id and last_id in CANONICAL_ANSWERS:
         context = (f"\nLast answered entry: {last_id} "
-                   f"({entry_question(CANONICAL_ANSWERS[last_id], all_forms=False)})")
+                   f"({canon_q(CANONICAL_ANSWERS[last_id])})")
     if len(user_turns) > 1:
         context += f"\nPrevious caller turn: {user_turns[-2]}"
     agent_turns = [m["content"] for m in history if m["role"] == "assistant"]
@@ -986,10 +1047,9 @@ def route_and_render(history: list[dict],
         qid = decision.get("id")
         if action == "ROUTE" or CANONICAL_ANSWERS.get(qid or "") is None:
             state["last_action"] = "ROUTE"
-            # Not-in-bank → the standard decline line, same as off-topic
-            # (owner's call: Q20 is not used by routing right now). A follow-up
-            # "matlab?" after this shouldn't re-explain a stale entry, so the
-            # clarify target is cleared — the classifier will ASK instead.
+            # Not-in-bank → the standard decline line, same as off-topic. A
+            # follow-up "matlab?" after this shouldn't re-explain a stale entry,
+            # so the clarify target is cleared — the classifier will ASK instead.
             state["last_answer_id"] = None
             state["clarify_count"] = 0
             yield DECLINE_LINE
