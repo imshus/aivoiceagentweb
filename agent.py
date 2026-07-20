@@ -296,7 +296,7 @@ Q17: What if my jewelry tag only contains the diamond color and clarity details,
 A: Yes, sir. In that case, the software scans the diamond color and clarity information printed on the tag. It then automatically matches those values with the rates you've already configured in the backend. Based on those predefined rates, the software instantly calculates and provides the correct MRP or final price without requiring any manual input.
 Q18: Can your software also manage our inventory?
 A: No, sir. At the moment, inventory management is not available in our software. However, we are actively working on this feature, and it will be launched very soon in a future update.
-Q19: What are the benefits of using your software?
+Q19: What are the benefits (fayda, fayde, sahuliyat, suhuliyat) of using your software? / Why should I buy this software?
 A:There are several benefits of using our software:
 1. Accurate Calculations: The software eliminates manual calculation errors, ensuring every price is calculated correctly.
 2. Faster Billing: Compared to manual calculations, the software significantly reduces the time required to calculate the final price, allowing you to serve customers much faster.
@@ -317,6 +317,22 @@ Q25: So, what is the benefit of this?
 A: Sir, the benefit is that the time you spend on manual calculations will be drastically reduced and completely error-free. Even a junior salesman will be able to easily focus on sales rather than calculations, because the software will automatically detect the MRP.
 Q26: How is the making charge applied in the software? / What is the option for adding making charges?
 A: If the making charge is written on the tag, the scanner reads it and includes it in the calculation automatically. If it is not on the tag, the software uses the making charge you have already set for that item in the backend, adds it to the final price, and calculates it automatically.
+Q33: Suppose different diamond qualities are attached on my tags — what will the software do in that case?
+A: Sir, the software will detect the different diamond qualities and calculate the price according to each quality.
+Q34: How will the software calculate the rate for 14 karat and 18 karat gold?
+A: Sir, the percentage purity for 14 karat and 18 karat is already defined inside the software, so it gives the 14 karat and 18 karat rates automatically. If you want to set the purity percentages your own way, you can change them and the software will calculate the rate from your values.
+Q35: Can I set rates for different diamond qualities?
+A: Yes, sir. You can set rates for every diamond quality, differentiated by color, clarity, or any other classification you use.
+Q36: Does the software also calculate GST automatically?
+A: Yes, sir. The software also calculates the GST automatically.
+Q37: My tag has data on both sides — do I have to scan both sides?
+A: Yes, sir. If your tag has data on both sides, you have to scan both sides. If the data is on one side only, you scan just that one side.
+Q38: Can you connect me to a senior person?
+A: Okay, sir. I will arrange a call for you with my senior. Please share your mobile number.
+Q39: Can you arrange a callback from one of your staff members?
+A: Yes, sir. I will arrange a callback for you. Please tell me your mobile number, and someone from our team will call you.
+Q40: I have some questions related to your software — can I ask them?
+A: Yes, sir, of course. Please feel free to ask all your questions in full detail, at your own pace. I will answer every one of them patiently.
 
 
 

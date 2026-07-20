@@ -1,168 +1,168 @@
 {
   "language": "hinglish",
   "render_model": "gpt-4.1-mini",
-  "generated_at": "2026-07-17T13:12:08.958963+00:00",
+  "generated_at": "2026-07-20T09:18:49.584734+00:00",
   "entries": {
     "Q1": {
       "hash": "04c4fc8e035dc8189172aa52b5d8f57cc50d83030d005db7459bc29e548fc8f0",
       "variants": [
-        "Tag Scanning Software एक jewelry software है जो आपके jewelry tags पर लिखे data को scan करता है और final price automatically calculate कर देता है, जिससे manual calculation की जरूरत ही नहीं रहती!"
+        "Tag Scanning Software एक jewelry software है जो आपके jewelry tags पर लिखा data scan कर देता है और final price automatically calculate कर देता है, जिससे manual calculation की जरूरत ही नहीं पड़ती।"
       ]
     },
     "Q2": {
       "hash": "878d4af0dced0c0500cfa472eb3d6b536271fd520e39a57e137a88a3e4e87e47",
       "variants": [
-        "Manual calculation का मतलब है कि आप खुद से हर item का final price निकालते हैं, जैसे tag से gold weight पढ़के उसे current gold rate से multiply करना, फिर diamond weight पढ़के उसे diamond rate से multiply करना, making या labor charges add करना, और calculator से ये तीनों parts (gold, diamond, labor) जोड़ना। हर item के लिए बार-बार calculator उठाना पड़ता है और tag या store owner से cross-check भी करना पड़ता है। ये software सारे steps खत्म कर देता है, एक click में automatically calculation कर देता है, वो भी दो seconds से कम में!"
+        "Manual calculation मतलब होता है कि आप खुद हाथ से item's final price निकालते हैं। Tag से gold weight पढ़ते हैं, उसे current gold rate से multiply करते हैं, फिर diamond weight पढ़के उसे diamond rate से multiply करते हैं। उसके बाद making या labor charges add करते हैं, और calculator से तीनों parts (gold, diamond, labor) का total जोड़ते हैं। हर item के लिए बार-बार calculator उठाना पड़ता है और tag या owner से cross-check करना पड़ता है। ये software ये सारे steps खत्म कर देता है, बस एक click से पूरी calculation automatically दो seconds में हो जाती है!"
       ]
     },
     "Q3": {
       "hash": "dd9d0378cdd752b84c22350d7b1ba124079063bc3785f20de0dff9f226ac4c68",
       "variants": [
-        "Software directly MCX, RTGS और local cash market के real-time rates से integrate कर देता है। आप अपने store के हिसाब से MCX, RTGS या cash rate choose कर सकते हैं price calculate करने के लिए। ये एक बार setup करना होता है, फिर daily active rates अपने आप software pull कर लेता है, manual entry की जरूरत नहीं पड़ती।"
+        "Software directly MCX, RTGS, और local cash market rates से real-time gold rates integrate कर देता है। आप अपने store के हिसाब से MCX, RTGS या cash rate एक बार select कर दीजिए। ये setup एक बार होता है, उसके बाद software रोज़ automatically active rates अपने आप pull कर लेता है, आपको manually डालने की ज़रूरत नहीं होती।"
       ]
     },
     "Q4": {
       "hash": "632dc6fd8082d4bea97eba0e9e211a9542d9b1a3c3f9ae2254028f54c6454e82",
       "variants": [
-        "Yes, ये software 14 Karat और 18 Karat gold दोनों के लिए MRP calculate कर देता है। साथ ही, 14 Karat price को instant on-the-spot 18 Karat price में convert करना भी possible है।"
+        "Yes, ये software 14 Karat और 18 Karat दोनों gold का MRP calculate कर देता है, और साथ ही 14 Karat price से 18 Karat price instant on-the-spot convert भी कर सकता है!"
       ]
     },
     "Q5": {
       "hash": "e1cf0dce5cd8d800c6523ee0b042ff12f49595e15182adbad6c1030b0cb679ed",
       "variants": [
-        "Yes, software में RTGS और cash rates अलग-अलग display होते हैं, आप जो भी rate apply करना चाहें select कर सकते हैं। फिर ये MRP automatically आपके business के terms और norms के हिसाब से calculate कर देता है।"
+        "Yes, ये application RTGS और cash rates दोनों अलग-अलग दिखाता है, और आप जो भी rate apply करना चाहें, उसे select कर सकते हैं। फिर software automatically आपके business के terms और norms के हिसाब से MRP calculate कर देता है।"
       ]
     },
     "Q6": {
       "hash": "0b1cbb1eb5dded7b3489659f0e1b82b8ec5ae167f4a266374a8a43cc5cb4055e",
       "variants": [
-        "Yes, software automatically net weight calculate कर देता है। Tag पर जो gross weight और diamond weight है, उससे software अपने आप net weight निकाल लेता है क्योंकि formula system में पहले से set है।"
+        "हाँ, software gross weight और diamond weight से net weight automatically calculate कर देता है। ये formula system में पहले से set है, तो tag में जो भी gross और diamond weight डालेंगे, net weight अपने आप निकल आएगा।"
       ]
     },
     "Q7": {
       "hash": "a1287be6679e99d86b301c5d544f154128c4c867c5713cc3a2faa5503926015e",
       "variants": [
-        "अगर jewelry में colored stones होते हैं, तो software tag पर लिखा stone weight पढ़ लेता है और system में डाल देता है। फिर ये आपसे उस particular colored stone का rate enter करने को कहता है, और जैसे ही आप rate डालते हैं, software उसे final MRP calculation में automatically जोड़ देता है।"
+        "अगर jewelry में colored stones होते हैं, तो software tag पर जो stone weight लिखा होता है, उसे read कर लेता है और system में डाल देता है। फिर ये आपसे उस specific colored stone का rate डालने को कहता है, जैसे ही आप rate enter करते हैं, software उसे final MRP calculation में automatically add कर देता है।"
       ]
     },
     "Q8": {
       "hash": "0665d156929a45f31cd7789b68c76cb2ecfc2669660d59170d5add84ff239c07",
       "variants": [
-        "Software handwritten tags और computer-coded tags दोनों को आसानी से scan कर लेता है, final price भी दोनों tag types से निकाल सकते हैं।"
+        "Software दोनों handwritten tags और computer-coded tags दोनों को आसानी से scan कर देता है, और final price दोनों में से किसी भी tag से derive हो सकता है।"
       ]
     },
     "Q9": {
       "hash": "dbfde743616dd8aecb38d79c33cfe9c616328e45cc56837c3e7a96889179dcd4",
       "variants": [
-        "Software तो value detect कर लेता है, लेकिन आपको system में ये specify करना होता है कि वो value carats है या grams।"
+        "Software value तो detect कर लेता है, लेकिन आपको system में specify करना होता है कि वो value carats है या grams।"
       ]
     },
     "Q10": {
       "hash": "01f7566c253456860167c33dc803e27cb19c4bac691f7f9bbdd65b61b8e5e0d6",
       "variants": [
-        "Yes, आप एक GST license पर एक admin account के नीचे multiple sub-users या employees create कर सकते हैं। Admin के पास सारे settings और permissions का पूरा control रहता है।"
+        "Yes, एक GST license के तहत एक admin account में multiple sub-users या employees create कर सकते हैं, और admin के पास सारे settings और permissions का full control रहता है।"
       ]
     },
     "Q11": {
       "hash": "870fb4b93c352e56cdc455a828f4295f48fe44f213777363b6c61e58ddfd9803",
       "variants": [
-        "Yes, admin हर employee के लिए अलग-अलग Karat rates जैसे 14 Karat या 18 Karat का view access enable या disable कर सकता है, ताकि staff सिर्फ वही rates देख पाए जो उनके लिए permitted हैं!"
+        "Yes, admin कर सकता है हर employee के लिए अलग-अलग Karat rates का view access enable या disable करना, जैसे 14 Karat या 18 Karat, ताकि staff सिर्फ वही rates देख पाए जो उनके लिए allowed हैं!"
       ]
     },
     "Q12": {
       "hash": "bacee00ecdf611430351e3b68cdbf5c49ba0a52cbe2e14466cdb3b90b5409107",
       "variants": [
-        "Charges में एक बार का setup charge होता है और फिर monthly recurring cost आती है, जो depend करता है आपके usage पर, जैसे number of tags scanned और number of active users पर। एक exact customized quote चाहिए तो directly हमारी team से contact करना पड़ेगा।"
+        "एक बार setup charge देना होता है और फिर monthly recurring cost आती है जो usage पर depend करती है, मतलब कितने tags scan हुए और कितने active users हैं। exact customized quote चाहिए तो directly हमारी team से contact करना होगा।"
       ]
     },
     "Q13": {
       "hash": "6e3d0cba7cc6ffa7cf6d26be1c9ca7454759051d4ea2c73da5d11dccc7911620",
       "variants": [
-        "Standard customization तो by default available नहीं है, लेकिन आपके specific requirements team से discuss कर सकते हैं, वो feasibility check करके honestly बता देंगे।"
+        "Standard customization तो by default available नहीं है, लेकिन अगर आपके पास specific requirements हैं तो team से discuss कर सकते हैं, वो feasibility check करके honest assessment दे देंगे।"
       ]
     },
     "Q14": {
       "hash": "948835bc65648cf8f8944cdec8d472ff5c1e55a077e5d5ac6964d6120e3fa80f",
       "variants": [
-        "ये software Amit Gupta ने बनाया है, जो Pratham International के founder हैं और jewelry manufacturing में पच्चीस साल का experience रखते हैं, ताकि manual और time-consuming MRP calculation का जो problem था, वो solve हो जाए।"
+        "ये software Amit Gupta ने बनाया है, जो Pratham International के founder हैं और jewelry manufacturing में पच्चीस साल का experience है। उन्होंने ये बनाया ताकि manual और time-consuming MRP calculation की problem solve हो जाए industry में।"
       ]
     },
     "Q15": {
       "hash": "1feb34044e5b228f70076f175f23c2298e2035a06a8819133c8e265f67dd0a1a",
       "variants": [
-        "Yes, ये software carats को grams में और grams को carats में convert कर देता है। सारे required formulas system में पहले से predefined हैं, इसलिए conversion automatically और बिल्कुल accurate होता है। आप बस value डालिए, और software instantly result दे देता है!"
+        "Yes, ये software carats को grams में और grams को carats में convert कर देता है। सारे required formulas system में predefined हैं, इसलिए ये conversion automatically और बिल्कुल accurate होता है। आप बस value डालिए, और software instantly result दे देता है!"
       ]
     },
     "Q16": {
       "hash": "d2bc46e34f3cf5b2ec84b6e2ba2da871ef84d9fc8f85d3635cc0977b9a17f90a",
       "variants": [
-        "Yes, software wastage calculations को support करता है। आप Wastage field में jewelry की purity के हिसाब से wastage percentage डाल दीजिए। software predefined formula apply करके wastage calculate कर देता है और सही final price या MRP generate कर देता है!"
+        "Yes, software wastage calculation support करता है। आप Wastage field में jewelry की purity के हिसाब से wastage percentage डालिए। software predefined formula apply करके wastage calculate कर देता है और सही final price या MRP generate हो जाता है।"
       ]
     },
     "Q17": {
       "hash": "f66bd5021921285a7777e365612fb54f9bc9bb796dbc6c8416fba31e1c7482d3",
       "variants": [
-        "Software आपके diamond tag से color और clarity grade पढ़कर आपके set किए हुए rate chart में से matching rate ढूंढ लेता है, फिर उस rate को apply करके MRP calculate कर देता है, बिलकुल manual input के बिना!"
+        "Software आपके diamond tag से color और clarity grade पढ़ता है और जो rate chart आपने हर grade के लिए set किया है, वहाँ से matching rate lookup कर लेता है। फिर वो rate apply करके correct MRP calculate कर देता है, बिना कोई manual input के।"
       ]
     },
     "Q18": {
       "hash": "ce87339c4347656a151245349b74f0e566640099a67188ec8f4e7c3aab4e92e4",
       "variants": [
-        "Inventory management अभी इस software में available नहीं है, लेकिन हमारी team इस feature पर काम कर रही है और future update में ये launch हो जाएगा।"
+        "Inventory management अभी इस software में नहीं है, लेकिन हमारी team इस feature पर काम कर रही है और future update में इसे launch कर दिया जाएगा।"
       ]
     },
     "Q19": {
       "hash": "a4faf37d2b528724eab158b802d150c52f8cb91b97b40b538701dca91ca6607f",
       "variants": [
-        "Software manual calculation errors को eliminate कर देता है, इसलिए हर price बिलकुल सही calculate होता है। ये final price निकालने का time भी कम कर देता है, जिससे आप customers को जल्दी serve कर पाते हैं। आपकी sales staff को calculations करने की जगह customers को assist और sales close करने पर focus कर सकते हैं। और क्योंकि हर calculation predefined formulas और rates से होती है, pricing mistakes almost eliminate हो जाती हैं।"
+        "Software manual calculation errors को पूरी तरह eliminate कर देता है, तो हर price बिलकुल सही calculate होता है। ये final price निकालने का time भी बहुत कम कर देता है, जिससे आप customers को जल्दी serve कर पाते हैं। आपके sales staff का focus calculations करने की बजाय customers को assist करने और sales close करने पर हो जाता है। और चूंकि हर calculation predefined formulas और rates से होती है, तो pricing mistakes लगभग zero हो जाती हैं!"
       ]
     },
     "Q20": {
       "hash": "a4e98f4db428303ed37f9fca1ae2650bf4000870a6f9f02e98da9e617a396cda",
       "variants": [
-        "Yes, आप staff jewelry industry के बाहर से भी hire कर सकते हैं, क्योंकि ये software सारे calculations manage कर देता है. कोई भी salesperson बिना jewelry experience के भी app के through calculation work आसानी से handle कर सकता है!"
+        "हाँ, आप outside jewelry industry से staff hire कर सकते हैं क्योंकि ये software सारे calculation manage कर देता है। जो salesperson jewelry experience नहीं रखता, वो भी app के through calculation काम आसानी से कर सकता है!"
       ]
     },
     "Q21": {
       "hash": "bfc1ec6c66138dfd7c6d40a5e9fbc931124c0e6845cfe15b069bcef06d3466a2",
       "variants": [
-        "Software ऐसा design किया है कि employee से गलती होने की संभावना बहुत कम हो जाती है। सारे rates, चाहे वो gold के हों, diamond के, या labor के, directly backend से आते हैं और tag का data भी automatically fetch हो जाता है। Final price calculation भी automated है, इसलिए mistakes almost negligible हो जाती हैं।"
+        "Software ऐसा design किया गया है कि employee से गलती होने की बहुत कम chance होती है। Gold, diamond, और labor के सारे rates सीधे backend से आते हैं, और tag का data भी automatically fetch हो जाता है। Final price calculation भी automated है, इसलिए mistake होने की संभावना बहुत कम हो जाती है।"
       ]
     },
     "Q22": {
       "hash": "bb135caa13f47cc1dbeb3a5cf37cb4c879defbd81f894546055dad9c6983f6ab",
       "variants": [
-        "कोई annual charges नहीं है, charges pay-as-you-go basis पर होते हैं, मतलब आप उतना ही pay करते हैं जितना आप use करते हैं। कोई hidden या extra fees नहीं होती।"
+        "कोई annual charges नहीं है इस software में। Charges pay-as-you-go basis पे होते हैं, मतलब जितना use करेंगे उतना pay करना होता है। कोई hidden या extra fees नहीं डालते हैं।"
       ]
     },
     "Q23": {
       "hash": "66d6b86cbb09bacd26f091103e2f9623e5e931885ae243ef6419b146b958cef9",
       "variants": [
-        "दो से तीन seconds तक लगते हैं calculate करने में, आपके internet connection की quality पर depend करता है। अगर high-speed connection है तो सिर्फ दो seconds में हर tag का data आ जाता है!"
+        "Tag scan करने के बाद MRP calculate होने में maximum दो से तीन seconds लगते हैं, लेकिन अगर आपका internet connection high-speed और अच्छा है तो सिर्फ दो seconds में ही हर tag का calculation हो जाता है!"
       ]
     },
     "Q24": {
       "hash": "9267bc64acd21ef3e71b724be69a228599609504f9bff88800bbe9a391e7f1b9",
       "variants": [
-        "Amit ने अपने दोस्तों और colleagues को jewelry industry में देखा, specially retailers और showroom owners को, जहां final price या MRP calculate करना salespeople और staff के लिए बड़ा pain point था और owners के लिए headache. इसलिए उसने अपनी expertise use करके ये app बनाया ताकि ये pain दूर हो जाए और calculation process आसान हो जाए।"
+        "Amit ने jewelry industry के friends और colleagues को visit किया, जिसमें retailers और showroom owners भी थे। वहाँ उसने देखा कि salespeople और staff के लिए final price या MRP calculate करना बहुत बड़ा pain point था, और owners के लिए headache भी। इसलिए उसने अपनी expertise use करके ये app बनाया ताकि वो pain दूर हो जाए और calculation process streamline हो जाए।"
       ]
     },
     "Q25": {
       "hash": "1fe704ae254ed3840749413edba43852c42304d64c065198d635ae1fae366045",
       "variants": [
-        "Benefit ये है कि manual calculations में लगने वाला time बहुत कम हो जाता है और result बिलकुल error-free होता है। Software automatically MRP detect कर देता है, जिससे junior salesman भी calculations की बजाय sales पर focus कर सकता है!"
+        "Benefit ये है कि manual calculations में लगने वाला time बहुत कम हो जाता है और result error-free हो जाता है! एक junior salesman भी sales पर focus कर सकता है, calculations की चिंता नहीं करनी पड़ती क्योंकि software MRP automatically detect कर देता है।"
       ]
     },
     "Q26": {
       "hash": "ed27260787ffa60e4c94526ff6ea64f8571dfb09e68063a2df0d560f265a09ef",
       "variants": [
-        "Making charge जो आपके tags पे print होता है, वो scan होते ही automatically calculation में add हो जाता है। अगर tag पे नहीं है, तो जो भी making charge आपने backend में हर item के लिए set किया है, software वो final price में apply कर देता है और calculate कर देता है।"
+        "Making charge जो आपके tags पे print होता है, वो scan करते ही automatically calculation में आ जाता है. वरना जो भी making charge आपने backend में हर item के लिए set किया है, software उसे final price में apply कर देता है और calculate कर देता है."
       ]
     },
     "Q27": {
       "hash": "771fb72c4b2d32b8dcb1022e50f2ca7ff89e53a2175b5120e0e0df18742664a3",
       "variants": [
-        "Diamond rates दो जगहों से आते हैं. अगर rate tag पर लिखा है, तो software उसे scan करके automatically calculate कर देता है. नहीं तो, आप एक बार अपनी diamond rates Master Settings में enter कर दीजिए, उसके बाद software backend से लेके अपने आप calculate कर देता है."
+        "Diamond rates दो जगहों से आते हैं। अगर rate tag पर लिखा है, तो software उसे scan करके automatically calculate कर देता है। नहीं तो, आप एक बार Master Settings में diamond rates enter कर दीजिए, फिर software backend से लेता है और अपने आप calculate करता रहता है।"
       ]
     },
     "Q28": {
@@ -174,25 +174,73 @@
     "Q29": {
       "hash": "5fecbaa1d72b3e32337b26adcb9a7a73870b80c57b6cd84b346995966c157fda",
       "variants": [
-        "अगर stone weight आपके tag पर लिखा है, तो software उसे automatically detect कर लेता है। सिर्फ तब आपको खुद stone weight enter करना पड़ता है जब tag पर वो लिखा न हो।"
+        "अगर stone weight आपके tag पर लिखा है, तो software उसे automatically detect कर लेता है। सिर्फ तब आपको खुद से enter करना पड़ता है जब tag पर stone weight नहीं लिखा होता।"
       ]
     },
     "Q30": {
       "hash": "fd9c5c62c36c3c0e021259136bf76f593fb10687cefb154c9e678c8c1621a5bc",
       "variants": [
-        "Activating software में सिर्फ पाँच से दस minutes लगते हैं, और कोई personally नहीं आता है। आप खुद ही कर सकते हैं, क्योंकि twenty-four-hour helpline हमेशा available रहती है guide करने के लिए, तो आप integration तुरंत ही complete कर सकते हैं!"
+        "Software activate करने में बस पाँच से दस minutes लगते हैं maximum. कोई personally नहीं आता, आप खुद ही कर लेते हैं. Twenty-four-hour helpline भी available है जो हर step में guide कर देती है, तो integration आप कुछ ही minutes में complete कर सकते हैं!"
       ]
     },
     "Q31": {
       "hash": "bd9ee1037bab792e7e33384783b01f35794098dea17a803130df61e65a8992ec",
       "variants": [
-        "ये software अभी gold jewelry, diamond jewelry, antique jewelry, और polki jewelry calculate कर देता है। Silver jewelry अभी option में नहीं है, लेकिन वो update में जल्द ही add हो जाएगा।"
+        "ये software अभी gold jewelry, diamond jewelry, antique jewelry, और polki jewelry के लिए MRP calculate कर देता है। Silver jewelry अभी option में नहीं है, लेकिन वो feature जल्दी ही update में add कर दिया जाएगा।"
       ]
     },
     "Q32": {
       "hash": "7dba19d207e5897808fb203ed8ee85de33e02429b5ad17b6fcb9d1609778f5b1",
       "variants": [
-        "Admin controls करता है कि हर employee को कौन-कौन से rates दिखेंगे, diamond rates change कर सकता है, और diamond rates show या hide करना भी manage करता है। इसके अलावा भी कई settings होती हैं जो admin handle करता है।"
+        "Admin control करता है कि हर employee कौन-कौन से rates देख सकता है, diamond rates change कर सकता है या नहीं, और diamond rates show होंगे या hidden, साथ ही और भी कई settings admin manage करता है।"
+      ]
+    },
+    "Q33": {
+      "hash": "8062d28398a268674c9823e24fa79fc969ae1b99c46c11c03fb7f07879604e5a",
+      "variants": [
+        "Software tag पर लगे हर अलग diamond quality को detect कर लेता है और फिर हर quality के हिसाब से price calculate कर देता है।"
+      ]
+    },
+    "Q34": {
+      "hash": "7dc80a4c76dd606e9b06148a80fbaaaf6872e6a9d5afb7493c52c2676449658f",
+      "variants": [
+        "Software के अंदर 14 karat और 18 karat की percentage purity पहले से defined होती है, तो ये rates automatically calculate कर देता है। अगर आप अपनी preferred purity percentages set करना चाहें तो आप change कर सकते हैं, फिर software आपके values से rate calculate कर देता है।"
+      ]
+    },
+    "Q35": {
+      "hash": "ed4e6eb4bcafc6f058229c6b298783293efc13d547276198205d8b71264db762",
+      "variants": [
+        "Yes, आप हर diamond quality के लिए rates set कर सकते हैं, चाहे वो color हो, clarity हो या कोई और classification जो आप use करते हैं।"
+      ]
+    },
+    "Q36": {
+      "hash": "dc7255492f26aaeebfc6a4ae890f92114230cf05d8b29a1f48b1cf5f14817bb5",
+      "variants": [
+        "Yes, ये software आपके MRP में GST भी automatically calculate कर देता है!"
+      ]
+    },
+    "Q37": {
+      "hash": "2bfc9f425080bed16cc3e8d01c4486c5ce210c050db56719e7b29e3cb6da7721",
+      "variants": [
+        "Yes, अगर आपके tag के दोनों sides पर data है तो दोनों sides को scan करना पड़ेगा। लेकिन अगर data सिर्फ एक side पर है तो सिर्फ वही side scan कर दीजिए।"
+      ]
+    },
+    "Q38": {
+      "hash": "0e59ea61c662d0f20e6fb5a3ada8c62059fbd619b22a51b1cd31a47bf8696506",
+      "variants": [
+        "ठीक है, मैं आपके लिए मेरे senior से call arrange कर देता हूँ। कृपया अपना mobile number share कर दीजिए।"
+      ]
+    },
+    "Q39": {
+      "hash": "5dad148215f2dccb94be612f51977755332b3f440de6524c9468447a06b51fd4",
+      "variants": [
+        "Yes, मैं आपके लिए callback arrange कर देती हूँ। कृपया अपना mobile number बताइए, हमारी team से कोई जल्दी ही आपसे call करेगा।"
+      ]
+    },
+    "Q40": {
+      "hash": "9d08402231b9888242ec2a7b4b14ad1a026a28177d2a8eb14faa20f9bce2c1e8",
+      "variants": [
+        "Yes, बिल्कुल पूछिए अपने सारे questions full detail में, अपने pace से। मैं हर एक सवाल patiently answer कर दूंगी।"
       ]
     }
   }

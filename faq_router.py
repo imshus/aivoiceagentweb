@@ -220,7 +220,11 @@ CANONICAL_ANSWERS: dict[str, dict] = {
              "in a future update.",
     },
     "Q19": {
-        "q": "What are the benefits of using the software?",
+        "q": {"subq1": "What are the benefits of using the software?",
+              "subq2": "What is the fayda (fayde, faida) of using this software?",
+              "subq3": "What sahuliyat (suhuliyat) does this software give?",
+              "subq4": "Why should I buy this software?",
+              },
         "a": "The software eliminates manual calculation errors, so every price "
              "is calculated correctly. It reduces the time needed to work out a "
              "final price, letting you serve customers faster. Your sales staff "
@@ -321,6 +325,54 @@ CANONICAL_ANSWERS: dict[str, dict] = {
              "the employee can see, changing the diamond rates, and whether "
              "diamond rates are shown or hidden, along with other settings the "
              "admin manages.",
+    },
+    "Q33": {
+        "q": "Suppose different diamond qualities are attached on my tags — what "
+             "will the software do in that case?",
+        "a": "The software detects each of the different diamond qualities on "
+             "the tag and calculates the price according to each quality.",
+    },
+    "Q34": {
+        "q": "How will the software calculate the rate for 14 karat and 18 "
+             "karat gold?",
+        "a": "The percentage purity for 14 karat and 18 karat is already "
+             "defined inside the software, so it gives the 14 karat and 18 "
+             "karat rates automatically. If you want to set the purity "
+             "percentages your own way, you can change them and the software "
+             "will calculate the rate from your values.",
+    },
+    "Q35": {
+        "q": "Can I set rates for different diamond qualities?",
+        "a": "Yes. You can set rates for every diamond quality you carry, "
+             "differentiated by color, clarity, or any other classification "
+             "you use.",
+    },
+    "Q36": {
+        "q": "Does the software also calculate GST automatically?",
+        "a": "Yes. The software also calculates GST automatically.",
+    },
+    "Q37": {
+        "q": "My tag has data on both sides — do I have to scan both sides?",
+        "a": "Yes. If your tag has data on both sides, you have to scan both "
+             "sides. If the data is on one side only, you scan just that one "
+             "side.",
+    },
+    "Q38": {
+        "q": "Can you connect me to a senior person?",
+        "a": "Okay. I will arrange a call for you with my senior. Please "
+             "share your mobile number.",
+    },
+    "Q39": {
+        "q": "Can you arrange a callback from one of your staff members?",
+        "a": "Yes. I will arrange a callback for you. Please tell me your "
+             "mobile number, and someone from our team will call you.",
+    },
+    "Q40": {
+        "q": "I have some questions related to your software — can I ask "
+             "them?",
+        "a": "Yes, of course. Please feel free to ask all your questions in "
+             "full detail, at your own pace. I will answer every one of them "
+             "patiently.",
     },
 }
 
