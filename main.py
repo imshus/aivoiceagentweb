@@ -182,7 +182,7 @@ async def talk(ws: WebSocket):
 
 def main():
     logger.info(f"🚀 Starting browser voice server on http://localhost:{HTTP_PORT}")
-    uvicorn.run(app, host="localhost", port=HTTP_PORT, log_level="info")
+    uvicorn.run(app, host="0.0.0.0", port=HTTP_PORT, log_level="info")
 
 
 if __name__ == "__main__":
