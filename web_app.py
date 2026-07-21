@@ -30,7 +30,6 @@ from dotenv import load_dotenv
 
 from agent import (
     CallSession,
-    prewarm_tts_cache,
     prewarm_connections,
     shutdown as agent_shutdown,
 )
@@ -93,9 +92,16 @@ class BrowserTransport:
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     logger.info("🚀 Browser voice server starting up")
-    # Warm the greeting/closing audio and the LLM + TTS sockets so the first
-    # session responds fast (same prewarm the telephony server used).
-    asyncio.create_task(prewarm_tts_cache())
+    # The FAQ question/answer pre-warm — both the LLM-rendered approved wordings
+    # AND their TTS audio — is done OFFLINE by gen_variants.py, which writes the
+    # wordings to faq_variants.json and synthesizes their clips into tts_cache/.
+    # The server therefore does NOT prewarm the answer audio here; it just serves
+    # the already-cached clips (and lazily synthesizes anything missing on first
+    # use). Re-run `python gen_variants.py` after editing an answer so its audio
+    # is ready before the server starts.
+    #
+    # Only the live LLM + TTS socket pools are warmed here, since those are
+    # per-process (DNS/TLS handshakes) and cannot be prepared offline.
     asyncio.create_task(prewarm_connections())
     yield
     logger.info("🛑 Shutting down")

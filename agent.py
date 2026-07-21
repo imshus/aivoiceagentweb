@@ -2330,5 +2330,7 @@ async def shutdown():
         logger.info("MongoDB client closed")
 
 # agent.py is now a library: the browser server (web_app.py) drives CallSession
-# and calls prewarm_tts_cache() / prewarm_connections() / shutdown(). Run the app
-# with:  python web_app.py
+# and calls prewarm_connections() / shutdown(). The FAQ question/answer TTS+LLM
+# pre-warm (prewarm_tts_cache) is run OFFLINE by gen_variants.py, not at server
+# boot — the server just serves the cached clips. Run the app with:
+#   python web_app.py
