@@ -214,7 +214,7 @@ _INTERRUPT_MARK = " [interrupted by caller — rest not heard]"
 # "hello, MRP kaise nikale?" still goes to the brain. Hangup intents are
 # checked BEFORE this, so "ok bye" still ends the call.
 SMALLTALK_RESPONSES = {
-    "greeting":   "हेलो! बताइए, मैं कैसे help कर सकती हूँ?",
+    "greeting":   "बताइए, मैं कैसे help कर सकती हूँ?",
     # A bare "hello" AFTER the conversation is under way is a nudge / "are you
     # there?", not a fresh start — it gets this SMALL acknowledgement instead of
     # the full opener (selected in _process_after_silence, same audio cache).

@@ -1,7 +1,7 @@
 {
   "language": "hinglish",
   "render_model": "gpt-4.1-mini",
-  "generated_at": "2026-07-20T09:18:49.584734+00:00",
+  "generated_at": "2026-07-20T10:54:00.454785+00:00",
   "entries": {
     "Q1": {
       "hash": "04c4fc8e035dc8189172aa52b5d8f57cc50d83030d005db7459bc29e548fc8f0",
@@ -241,6 +241,12 @@
       "hash": "9d08402231b9888242ec2a7b4b14ad1a026a28177d2a8eb14faa20f9bce2c1e8",
       "variants": [
         "Yes, बिल्कुल पूछिए अपने सारे questions full detail में, अपने pace से। मैं हर एक सवाल patiently answer कर दूंगी।"
+      ]
+    },
+    "Q41": {
+      "hash": "9d08402231b9888242ec2a7b4b14ad1a026a28177d2a8eb14faa20f9bce2c1e8",
+      "variants": [
+        "Yes, जरूर, आप अपने सारे questions full detail में अपने pace से पूछ सकते हैं। मैं हर एक का patiently जवाब दूंगी।"
       ]
     }
   }
