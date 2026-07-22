@@ -137,7 +137,10 @@ CANONICAL_ANSWERS: dict[str, dict] = {
              "the tag.",
     },
     "Q7": {
-        "q": "How does the software handle jewelry that contains colored stones?",
+        "q": {"subq1":"How does the software handle jewelry that contains colored stones?",
+              "subq2":"How does the software handle jewelry that contains stones?",
+              
+              },
         "a": "If the jewelry has colored stones, the software reads the stone "
              "weight mentioned on the tag and pulls it into the system. It then "
              "prompts you to enter the rate for that specific colored stone, and "
@@ -146,9 +149,7 @@ CANONICAL_ANSWERS: dict[str, dict] = {
     },
     "Q8": {
         "q": {"subq1": "What if a jeweler is still using handwritten tags "
-                       "instead of computer-coded tags?",
-              "subq2": "What if a jeweler is still using handwritten tags "
-                       "instead of stone tags?",
+                       "instead of computer-coded tags?"
               },
         "a": "The software scans both handwritten tags and computer-coded tags "
              "easily. The final price can be derived from either type of tag.",
@@ -398,8 +399,11 @@ CANONICAL_ANSWERS: dict[str, dict] = {
              "final price.",
     },
     "Q43": {
-        "q": "I always add something of my own to the gold rate before "
+        "q": {"subq1": "I always add something of my own to the gold rate before "
              "calculating prices — how does your software handle that?",
+             "subq2": "Kya isme feature hai ki peeche se aane wale rate par "
+                                    "main apna rate add kar ke calculate karun?",
+             },
         "a": "On top of the gold rate coming from the backend, you can add "
              "your own amount to the rate, so the price calculation happens "
              "according to your rates. This is an easy feature you can manage "
@@ -408,8 +412,6 @@ CANONICAL_ANSWERS: dict[str, dict] = {
     "Q44": {
         "q": {"subq1": "Up to how much can I add or edit on top of the "
                        "incoming rate to charge my customer?",
-              "subq2": "Kya isme feature hai ki peeche se aane wale rate par "
-                       "main apna rate add kar ke calculate karun?",
               },
         "a": "There is no limit. You can add any amount you like on top of "
              "the rate coming from the backend, and the final price is "
