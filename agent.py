@@ -274,7 +274,7 @@ Q6: If a tag shows gross weight and diamond weight, but not net weight, can the 
 A: Yes, the software calculates the net weight automatically. The required formula is pre-defined within the system, allowing it to easily derive the net weight from the gross and diamond weights provided on the tag.
 Q7: How does the software handle jewelry that contains colored stones?
 A: If your jewelry has colored stones, the software identifies the stone weight mentioned on the tag and pulls it into the system. It will then prompt you to enter the rate for that specific colored stone; once entered, the software automatically adds it to the final MRP calculation.
-Q8: What if a jeweler is still using handwritten tags instead of computer-coded tags?
+Q8: What if a jeweler is still using handwritten tags instead of computer-coded tags? / What if a jeweler is still using handwritten tags instead of stone tags?
 A: The Software scannes both handwritten tags and computer tags easily so final price can be derived easily either from handwritten tags or computer tags check grammer spelling and all.
 Q9: If the tag shows '10.00' for stone weight, how does the system know if it is Carats or Grams?
 A: The software will detect the value '10.00', but the user must manually specify within the system whether that value represents Carats or Grams.
@@ -282,7 +282,7 @@ Q10: Can I give this software access to my salesman or other staff members?
 A: Yes. Multiple sub-users/employees can be created under a single admin account per GST license. The admin retains 100% control over all settings and permissions.
 Q11: Can the admin control which Karat rates are visible to which employee?
 A: Yes. The admin can enable or disable view access for specific Karat rates (like 14K or 18K) on a per-employee basis, ensuring staff only see what they are permitted to see.
-Q12: What are the charges for this software?
+Q12: What are the charges for this software? / ये software का क्या price है? / ये software कितने का है? / ये software की क्या cost है?
 A: There is a one-time setup charge and a monthly recurring cost based on usage (number of tags scanned and active users). Exact customized quotes require direct contact.
 Q13: Is customization available in the software?
 A: Standard customization is not offered by default. However, specific requirements can be discussed with the team, who will evaluate feasibility and provide an honest assessment.
@@ -305,7 +305,7 @@ A:There are several benefits of using our software:
 Overall, the software helps improve accuracy, save time, increase efficiency, and provide a better customer experience.
 Q20: Can I hire staff from outside the jewelry industry and still use this software effectively?
 A: Yes, absolutely. You can hire staff from outside the jewelry industry because the software easily and effectively manages all the calculations. A salesperson without prior jewelry experience can seamlessly handle all the calculation work through the app.
-Q21: What if an employee makes a mistake while using the software?
+Q21: What if an employee makes a mistake while using the software? / What will happen if there is a calculation error?
 A: The software is designed in such a way that there is little to no chance of an employee making an error. All rates—whether for gold, diamonds, or labor—are derived directly from the backend. Furthermore, all data on the tag is fetched automatically by the software, meaning there is no manual human intervention required for the final price calculation. Because of this automation, the chances of mistakes are very low.
 Q22: Are there any annual charges for this software?
 A: No, there are no annual charges for this software. The only applicable charges are on a pay-as-you-go basis, meaning you only pay for what you use and how much you use. There are no hidden or extra fees.
@@ -339,7 +339,7 @@ Q42: How does the software calculate and tell the price?
 A: Sir, it scans the data from your tag, detects the rates you have set in the backend, and automatically calculates and tells you the final price.
 Q43: I always add something of my own to the gold rate before calculating prices — how does your software handle that?
 A: Sir, on top of the gold rate coming from the backend, you can add your own amount to the rate, so the price calculation happens according to your rates. This is an easy feature you can manage inside the software.
-Q44: Up to how much can I add or edit on top of the incoming rate to charge my customer?
+Q44: Up to how much can I add or edit on top of the incoming rate to charge my customer? / Kya isme feature hai ki peeche se aane wale rate par main apna rate add kar ke calculate karun?
 A: Sir, there is no limit. You can add any amount you like on top of the rate coming from the backend, and the final price is calculated with your added amount for you to charge your customer.
 Q45: Besides MRP calculation, what else does the software do?
 A: Sir, right now the software has one feature: scanning the tag and calculating the MRP. More features are being developed step by step and will come as add-ons. For now, this is it.
@@ -359,6 +359,8 @@ Q52: When a customer picks several items — a ring, a necklace set, a pendant �
 A: Yes, sir. There is a wishlist column: every tag you scan and calculate the MRP for can be added to the wishlist, so when the customer's final invoice or slip is being made, you can select those particular already-scanned items from the wishlist.
 Q53: I do not write diamond rates on my tags; we use packet codes. How will the software manage that?
 A: Sir, set your packet codes once in Masters in the backend. After that, the software detects whichever packet code is written on the tag and applies the rate automatically.
+Q54: Will I have to change my tags according to your system?
+A: No, sir. You do not have to change any tags. The software scans the data on your tags exactly as they are and calculates the MRP for you.
 
 
 

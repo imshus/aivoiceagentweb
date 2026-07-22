@@ -1,7 +1,7 @@
 {
   "language": "hinglish",
   "render_model": "gpt-4.1-mini",
-  "generated_at": "2026-07-22T07:18:02.091536+00:00",
+  "generated_at": "2026-07-22T09:07:05.116640+00:00",
   "entries": {
     "Q1": {
       "hash": "04c4fc8e035dc8189172aa52b5d8f57cc50d83030d005db7459bc29e548fc8f0",
@@ -319,6 +319,12 @@
       "hash": "b0ff8b87480e62b4bc996a34c5ee952887de66227b4215b260bc4d1a6b9d78d2",
       "variants": [
         "Packet codes एक बार Masters में backend में set कर दीजिए, उसके बाद software tag पर जो भी packet code होगा, उसे detect करके rate automatically apply कर देता है।"
+      ]
+    },
+    "Q54": {
+      "hash": "e30aaea978f14399959cb498dbea738f6689192f2312a4b51db3a5f82859f238",
+      "variants": [
+        "कोई भी tags change करने की ज़रूरत नहीं है, ये software आपके tags को वैसे ही scan कर लेता है और MRP calculate कर देता है।"
       ]
     }
   }

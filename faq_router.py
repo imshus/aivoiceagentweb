@@ -145,8 +145,11 @@ CANONICAL_ANSWERS: dict[str, dict] = {
              "MRP calculation.",
     },
     "Q8": {
-        "q": "What if a jeweler is still using handwritten tags instead of "
-             "computer-coded tags?",
+        "q": {"subq1": "What if a jeweler is still using handwritten tags "
+                       "instead of computer-coded tags?",
+              "subq2": "What if a jeweler is still using handwritten tags "
+                       "instead of stone tags?",
+              },
         "a": "The software scans both handwritten tags and computer-coded tags "
              "easily. The final price can be derived from either type of tag.",
     },
@@ -171,7 +174,11 @@ CANONICAL_ANSWERS: dict[str, dict] = {
              "staff only see what they are permitted to see.",
     },
     "Q12": {
-        "q": "What are the charges for this software?",
+        "q": {"subq1": "What are the charges for this software?",
+              "subq2": "ये software का क्या price है?",
+              "subq3": "ये software कितने का है?",
+              "subq4": "ये software की क्या cost है?",
+              },
         "a": "There is a one-time setup charge and a monthly recurring cost based "
              "on usage, meaning the number of tags scanned and the number of "
              "active users. An exact customized quote requires contacting the "
@@ -241,7 +248,10 @@ CANONICAL_ANSWERS: dict[str, dict] = {
              "the app.",
     },
     "Q21": {
-        "q": "What if an employee makes a mistake while using the software?",
+        "q": {"subq1": "What if an employee makes a mistake while using the "
+                       "software?",
+              "subq2": "What will happen if there is a calculation error?",
+              },
         "a": "The software is designed so there is little chance of an employee "
              "making an error. All rates, whether for gold, diamonds, or labor, "
              "come directly from the backend, and the data on the tag is fetched "
@@ -396,8 +406,11 @@ CANONICAL_ANSWERS: dict[str, dict] = {
              "inside the software.",
     },
     "Q44": {
-        "q": "Up to how much can I add or edit on top of the incoming rate "
-             "to charge my customer?",
+        "q": {"subq1": "Up to how much can I add or edit on top of the "
+                       "incoming rate to charge my customer?",
+              "subq2": "Kya isme feature hai ki peeche se aane wale rate par "
+                       "main apna rate add kar ke calculate karun?",
+              },
         "a": "There is no limit. You can add any amount you like on top of "
              "the rate coming from the backend, and the final price is "
              "calculated with your added amount for you to charge your "
@@ -480,6 +493,12 @@ CANONICAL_ANSWERS: dict[str, dict] = {
         "a": "Set your packet codes once in Masters in the backend. After "
              "that, the software detects whichever packet code is written on "
              "the tag and applies the rate automatically.",
+    },
+    "Q54": {
+        "q": "Will I have to change my tags according to your system?",
+        "a": "No. You do not have to change any tags. The software scans the "
+             "data on your tags exactly as they are and calculates the MRP "
+             "for you.",
     },
 }
 
