@@ -374,6 +374,113 @@ CANONICAL_ANSWERS: dict[str, dict] = {
              "full detail, at your own pace. I will answer every one of them "
              "patiently.",
     },
+    "Q41": {
+        "q": "What type of data does the software scan?",
+        "a": "It scans all the data written on the tag — gross weight, net "
+             "weight, diamond weight, labor charges — whatever data is "
+             "written on your tag. It scans every piece of that data and "
+             "produces the final calculation.",
+    },
+    "Q42": {
+        "q": "How does the software calculate and tell the price?",
+        "a": "It scans the data from your tag, detects the rates you have set "
+             "in the backend, and automatically calculates and tells you the "
+             "final price.",
+    },
+    "Q43": {
+        "q": "I always add something of my own to the gold rate before "
+             "calculating prices — how does your software handle that?",
+        "a": "On top of the gold rate coming from the backend, you can add "
+             "your own amount to the rate, so the price calculation happens "
+             "according to your rates. This is an easy feature you can manage "
+             "inside the software.",
+    },
+    "Q44": {
+        "q": "Up to how much can I add or edit on top of the incoming rate "
+             "to charge my customer?",
+        "a": "There is no limit. You can add any amount you like on top of "
+             "the rate coming from the backend, and the final price is "
+             "calculated with your added amount for you to charge your "
+             "customer.",
+    },
+    "Q45": {
+        "q": "Besides MRP calculation, what else does the software do?",
+        "a": "Right now the software has one feature: scanning the tag and "
+             "calculating the MRP. More features are being developed step by "
+             "step and will come as add-ons. For now, this is it.",
+    },
+    "Q46": {
+        "q": "Why should I take this software?",
+        "a": "If you want your tag calculations done quickly, want to be free "
+             "of dependency on your salesmen, and want error-free "
+             "calculations — for all of those things this software will serve "
+             "you well.",
+    },
+    "Q47": {
+        "q": "If I face a problem using the software tomorrow, where do I "
+             "contact — do you have a team behind you, or do I talk to you?",
+        "a": "We have a fully dedicated team. You will get a completely "
+             "satisfactory answer, whether it comes from me or from my "
+             "seniors. You only have to tell us what problem you are facing, "
+             "and within minutes you will get the answer and full "
+             "assistance.",
+    },
+    "Q48": {
+        "q": "What is the pain here? We manage manual calculation quite "
+             "comfortably — what is the big pain point?",
+        "a": "First, calculating by hand takes a lot of time, and that is a "
+             "big headache. Second, if you need the same item's price again "
+             "and again, you would have to redo the manual calculation every "
+             "time — the software has a wishlist feature, so you calculate "
+             "the MRP once, add the item to the cart, and keep it in the "
+             "wishlist. Third, there may be data you do not want to share "
+             "with your salesmen, and you can keep that inside the software. "
+             "And fourth, to keep gold prices updated you have to make phone "
+             "calls again and again, or your salesman has to keep checking "
+             "with you or hunting in some app — the software eliminates that "
+             "whole process.",
+    },
+    "Q49": {
+        "q": "Is there a free trial option so I can try the software before "
+             "buying it?",
+        "a": "Yes. You can use the software for one full week at zero cost, "
+             "with no charges. After using it for a week, if you are happy "
+             "with it, you can buy the software.",
+    },
+    "Q50": {
+        "q": "Do I have to pay an annual maintenance charge (AMC) for this "
+             "software?",
+        "a": "No. There is no AMC to pay for operating this software. You buy "
+             "the software once, and after that there are monthly charges "
+             "that depend on your software usage. Beyond that there is no "
+             "AMC.",
+    },
+    "Q51": {
+        "q": "Does the software calculate the price from gross weight, net "
+             "weight, or pure weight?",
+        "a": "The software gives you the option: you can have the amount "
+             "multiplied by gross weight, net weight, or pure weight — "
+             "whichever you choose — and get the full calculation from it. "
+             "It follows your own standard; we have not imposed any fixed "
+             "formula.",
+    },
+    "Q52": {
+        "q": "When a customer picks several items — a ring, a necklace set, "
+             "a pendant — is there a feature that collects all that data in "
+             "one place so the final price is picked up automatically?",
+        "a": "Yes. There is a wishlist column: every tag you scan and "
+             "calculate the MRP for can be added to the wishlist, so when "
+             "the customer's final invoice or slip is being made, you can "
+             "select those particular already-scanned items from the "
+             "wishlist.",
+    },
+    "Q53": {
+        "q": "I do not write diamond rates on my tags; we use packet codes. "
+             "How will the software manage that?",
+        "a": "Set your packet codes once in Masters in the backend. After "
+             "that, the software detects whichever packet code is written on "
+             "the tag and applies the rate automatically.",
+    },
 }
 
 
@@ -518,11 +625,15 @@ _LOCAL_RULES: list[tuple[str, tuple[str, ...]]] = [
     # NOTE: Q3 (rate source) is deliberately matcher-less — its "bhaav"/"metal
     # rate" phrasings sit close to "today's gold price" (which must ROUTE) and
     # are blocked by _MATCH_BLOCKERS anyway; the classifier owns Q3 via the menu.
-    ("Q4", (r"\brtgs\b|आर\s?टी\s?जी\s?एस|"
+    # FIX (2026-07-22): these rules were written against an older bank
+    # numbering and had rotated one entry off — RTGS turns answered the karat
+    # entry, weight turns answered RTGS, karat turns answered net-weight.
+    ("Q5", (r"\brtgs\b|आर\s?टी\s?जी\s?एस|"
             r"(?:cash|कैश)\W{0,12}(?:rates?|रेट)|(?:rates?|रेट)\W{0,12}(?:cash|कैश)",)),
-    ("Q5", (r"(?:gross|net|ग्रॉस|नेट)\W{0,20}(?:weight|वेट|वज़न|वजन)|"
-            r"(?:weight|वेट|वज़न|वजन)\W{0,12}(?:gross|net|ग्रॉस|नेट)",)),
-    ("Q6", (r"(?:\b1[48]\b|fourteen|eighteen|चौदह|अठारह)",
+    # NOTE: no gross/net-weight rule — that phrasing is ambiguous between Q6
+    # (derive net weight from gross) and Q51 (which weight the calculation
+    # uses), so the classifier owns those turns.
+    ("Q4", (r"(?:\b1[48]\b|fourteen|eighteen|चौदह|अठारह)",
             r"(?:karat|carat|karet|कैरे?ट|\bkt\b)")),
     ("Q7", (r"(?:colou?r(?:ed)?|रंग[ीि]?न|rangee?n)\W{0,14}(?:stones?|स्टोन|पत्थर)|"
             r"(?:stones?|स्टोन|पत्थर)\W{0,14}(?:colou?r(?:ed)?|रंग)",)),

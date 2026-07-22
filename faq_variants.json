@@ -1,7 +1,7 @@
 {
   "language": "hinglish",
   "render_model": "gpt-4.1-mini",
-  "generated_at": "2026-07-20T10:54:00.454785+00:00",
+  "generated_at": "2026-07-22T07:18:02.091536+00:00",
   "entries": {
     "Q1": {
       "hash": "04c4fc8e035dc8189172aa52b5d8f57cc50d83030d005db7459bc29e548fc8f0",
@@ -244,9 +244,81 @@
       ]
     },
     "Q41": {
-      "hash": "9d08402231b9888242ec2a7b4b14ad1a026a28177d2a8eb14faa20f9bce2c1e8",
+      "hash": "8e11fbaa80c3aced7523cb6dff9a266db6556a3d69d9985d68d6e93dccf54248",
       "variants": [
-        "Yes, जरूर, आप अपने सारे questions full detail में अपने pace से पूछ सकते हैं। मैं हर एक का patiently जवाब दूंगी।"
+        "Software आपके tag पे लिखा हर data scan कर देता है — gross weight, net weight, diamond weight, labor charges, जो भी data tag पे लिखा होता है। ये हर एक piece of data scan करके final calculation कर देता है।"
+      ]
+    },
+    "Q42": {
+      "hash": "f655219cbd95f2aa8429e7f5a266a89bac1482e8ccacab2b35044fd8732b2f05",
+      "variants": [
+        "Software आपके tag से data scan करके backend में set rates detect कर लेता है, फिर automatically final price calculate करके बता देता है!"
+      ]
+    },
+    "Q43": {
+      "hash": "e49252d0b202f56389a3e9eccd7f11436bc4afa15618261f1807c682d9070476",
+      "variants": [
+        "Gold rate जो backend से आता है, उसके ऊपर आप अपनी जो amount add करना चाहते हैं, वो भी add कर सकते हैं, ताकि price calculation आपके rates के हिसाब से हो जाए। ये feature software में बहुत आसानी से manage हो जाता है।"
+      ]
+    },
+    "Q44": {
+      "hash": "5403d069016dfe12faf427d1768b846a9f92ca3ef970e519df65a6cffd00571c",
+      "variants": [
+        "कोई limit नहीं है, आप backend से आने वाले rate के ऊपर जितना चाहे उतना add या edit कर सकते हैं, final price आपके added amount के साथ calculate हो जाता है ताकि आप अपने customer को charge कर सकें!"
+      ]
+    },
+    "Q45": {
+      "hash": "e739698be456faa7603c5a154eb787a03bf340fad906755e733f84410642f9a7",
+      "variants": [
+        "Right now software का एक ही feature है — tag scan करके MRP calculate कर देता है। बाकी features धीरे-धीरे develop हो रहे हैं और add-ons की तरह आने वाले हैं। अभी के लिए बस इतना ही है।"
+      ]
+    },
+    "Q46": {
+      "hash": "53da3e02c1025ec18ac7fb875739d4c367c47d00fcf3b0ac986c636bc24d493a",
+      "variants": [
+        "अगर आप चाहते हैं कि आपके tag calculations जल्दी हो जाएं, salesmen पर dependency खत्म हो जाए, और calculations एकदम error-free हों — तो ये software आपके लिए बहुत useful रहेगा!"
+      ]
+    },
+    "Q47": {
+      "hash": "f82e600d95c98dcf4d03358fd91552c7f05f912917abdb5d8e984a4cd0ffcdb1",
+      "variants": [
+        "हमारे पास एक पूरा dedicated team है जो आपके हर problem का पूरा satisfactory answer देती है। चाहे answer मुझसे आए या मेरे seniors से, बस आप हमें बताइए कि कौन सा problem आ रहा है। फिर कुछ ही minutes में आपको पूरी assistance और solution मिल जाएगा!"
+      ]
+    },
+    "Q48": {
+      "hash": "0f07c4199b56f9bcc5c4af931b0d24b6969bfe88e10ad9209b659f43962cdd3e",
+      "variants": [
+        "Calculating by hand बहुत time लेता है, जो बड़ा headache है. फिर अगर एक ही item का price बार-बार चाहिए, तो manual calculation हर बार करनी पड़ती है, लेकिन software में wishlist feature है, वहाँ एक बार MRP calculate कर के item को cart में डालो और wishlist में रखो. कुछ data ऐसे होते हैं जो आप salesman के साथ share नहीं करना चाहते, वो भी software में सुरक्षित रख सकते हैं. और gold prices update रखने के लिए बार-बार phone calls करनी पड़ती हैं या salesman को check करना पड़ता है, लेकिन software ये पूरा process खत्म कर देता है."
+      ]
+    },
+    "Q49": {
+      "hash": "60f54eb73387340a947b3b591f5794357b1d31dc91a4b4e12e59296fd8e6d5cb",
+      "variants": [
+        "Yes, एक full week के लिए आप software बिलकुल free में use कर सकते हैं, कोई charges नहीं हैं। एक week के बाद अगर आप खुश हैं तो software खरीद सकते हैं।"
+      ]
+    },
+    "Q50": {
+      "hash": "8ef8005894645b3a88b7cdef29a11b22d64109762c0e48e61f66a52f8edf7b63",
+      "variants": [
+        "कोई AMC pay नहीं करनी होती इस software के लिए। आप एक बार software buy कर लीजिए, उसके बाद monthly charges आते हैं जो आपके software usage पर depend करते हैं। उसके अलावा कोई AMC नहीं होता।"
+      ]
+    },
+    "Q51": {
+      "hash": "aae4da3bd9776b2b88f1364659958b1911eb6b6cf42a173bc42033982c6663e5",
+      "variants": [
+        "Software में option होता है कि amount आप gross weight, net weight, या pure weight में से जो चाहो choose कर सकते हो। जो भी आप select करोगे, उससे full calculation कर देता है। ये आपके अपने standard के हिसाब से चलता है, कोई fixed formula हमने impose नहीं किया है।"
+      ]
+    },
+    "Q52": {
+      "hash": "405c267d0ab742aff4fb35bb79fdbddd336a95a636962d1edc5a5dad23e93078",
+      "variants": [
+        "Yes, wishlist column होता है हमारे software में, जहाँ आप जो भी tag scan करके MRP calculate करते हैं, वो सब wishlist में add कर सकते हैं। फिर जब final invoice या slip बनानी हो, तो wishlist से वो सारे already-scanned items select कर लेते हैं, और final price automatically आ जाता है।"
+      ]
+    },
+    "Q53": {
+      "hash": "b0ff8b87480e62b4bc996a34c5ee952887de66227b4215b260bc4d1a6b9d78d2",
+      "variants": [
+        "Packet codes एक बार Masters में backend में set कर दीजिए, उसके बाद software tag पर जो भी packet code होगा, उसे detect करके rate automatically apply कर देता है।"
       ]
     }
   }

@@ -9,4 +9,4 @@ venv/
 
 # Runtime artifacts
 *.log
-tts_cache/
+

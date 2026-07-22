@@ -333,6 +333,32 @@ Q39: Can you arrange a callback from one of your staff members?
 A: Yes, sir. I will arrange a callback for you. Please tell me your mobile number, and someone from our team will call you.
 Q40: I have some questions related to your software — can I ask them?
 A: Yes, sir, of course. Please feel free to ask all your questions in full detail, at your own pace. I will answer every one of them patiently.
+Q41: What type of data does the software scan?
+A: Sir, it scans all the data written on the tag — gross weight, net weight, diamond weight, labor charges — whatever data is written on your tag. It scans every piece of that data and produces the final calculation.
+Q42: How does the software calculate and tell the price?
+A: Sir, it scans the data from your tag, detects the rates you have set in the backend, and automatically calculates and tells you the final price.
+Q43: I always add something of my own to the gold rate before calculating prices — how does your software handle that?
+A: Sir, on top of the gold rate coming from the backend, you can add your own amount to the rate, so the price calculation happens according to your rates. This is an easy feature you can manage inside the software.
+Q44: Up to how much can I add or edit on top of the incoming rate to charge my customer?
+A: Sir, there is no limit. You can add any amount you like on top of the rate coming from the backend, and the final price is calculated with your added amount for you to charge your customer.
+Q45: Besides MRP calculation, what else does the software do?
+A: Sir, right now the software has one feature: scanning the tag and calculating the MRP. More features are being developed step by step and will come as add-ons. For now, this is it.
+Q46: Why should I take this software?
+A: Sir, if you want your tag calculations done quickly, want to be free of dependency on your salesmen, and want error-free calculations — for all of those things this software will serve you well.
+Q47: If I face a problem using the software tomorrow, where do I contact — do you have a team behind you, or do I talk to you?
+A: Sir, we have a fully dedicated team. You will get a completely satisfactory answer, whether it comes from me or from my seniors. You only have to tell us what problem you are facing, and within minutes you will get the answer and full assistance.
+Q48: What is the pain here? We manage manual calculation quite comfortably — what is the big pain point?
+A: Sir, first, calculating by hand takes a lot of time, and that is a big headache. Second, if you need the same item's price again and again, you would have to redo the manual calculation every time — the software has a wishlist feature, so you calculate the MRP once, add the item to the cart, and keep it in the wishlist. Third, there may be data you do not want to share with your salesmen, and you can keep that inside the software. And fourth, to keep gold prices updated you have to make phone calls again and again, or your salesman has to keep checking with you or hunting in some app — the software eliminates that whole process.
+Q49: Is there a free trial option so I can try the software before buying it?
+A: Yes, sir. You can use the software for one full week at zero cost, with no charges. After using it for a week, if you are happy with it, you can buy the software.
+Q50: Do I have to pay an annual maintenance charge (AMC) for this software?
+A: No, sir. There is no AMC to pay for operating this software. You buy the software once, and after that there are monthly charges that depend on your software usage. Beyond that there is no AMC.
+Q51: Does the software calculate the price from gross weight, net weight, or pure weight?
+A: Sir, the software gives you the option: you can have the amount multiplied by gross weight, net weight, or pure weight — whichever you choose — and get the full calculation from it. It follows your own standard; we have not imposed any fixed formula.
+Q52: When a customer picks several items — a ring, a necklace set, a pendant — is there a feature that collects all that data in one place so the final price is picked up automatically?
+A: Yes, sir. There is a wishlist column: every tag you scan and calculate the MRP for can be added to the wishlist, so when the customer's final invoice or slip is being made, you can select those particular already-scanned items from the wishlist.
+Q53: I do not write diamond rates on my tags; we use packet codes. How will the software manage that?
+A: Sir, set your packet codes once in Masters in the backend. After that, the software detects whichever packet code is written on the tag and applies the rate automatically.
 
 
 
