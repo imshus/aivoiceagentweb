@@ -2,13 +2,22 @@
 """Offline pre-renderer for FAQ answer variants — INCREMENTAL.
 
 Run this ONCE after you add or edit a question in faq_router.py (needs
-OPENAI_API_KEY + network). It produces faq_variants.json next to faq_router.py.
+DEEPSEEK_API_KEY + ELEVENLABS_API_KEY + network). It produces faq_variants.json
+next to faq_router.py.
 The live agent then speaks these approved wordings for exact-match questions
 WITHOUT calling the render LLM, and its pre-synthesized audio answers common
 questions near-instantly.
 
+This is the BULK / offline version of what the /crm console does per entry: same
+render prompt, same faq_variants.json, same tts_cache/. A question recorded at
+/crm is rendered and synthesized the moment it is saved, and the console's
+"Pre-warm missing" button runs this same pass over anything stale or unrendered.
+Use this script when you have edited answers by hand, or want every wording
+regenerated at once.
+
 WORKFLOW — the ONLY steps you need:
-  1. Add / edit a question's answer in faq_router.CANONICAL_ANSWERS.
+  1. Add / edit a question's answer in faq_router.CANONICAL_ANSWERS
+     (or record it at /crm, which writes that block for you).
   2. Run:  python gen_variants.py
      • Only the NEW or EDITED answer is re-worded — every already-approved
        wording is kept exactly as-is (nothing you already approved changes).
@@ -43,8 +52,6 @@ from datetime import datetime, timezone
 from dotenv import load_dotenv
 
 load_dotenv()
-
-from openai import AsyncOpenAI
 
 # Windows consoles default to cp1252 and crash when we print the Devanagari
 # variants or the box-drawing status marks. Force UTF-8 output so a run never
@@ -82,6 +89,7 @@ async def _one(client, model, temperature, entry, earlier):
         model=model,
         temperature=temperature,
         max_tokens=400,
+        extra_body=fr.LLM_EXTRA,
         messages=[
             {"role": "system", "content": _RENDER_SYSTEM},
             {"role": "user", "content": user},
@@ -194,7 +202,9 @@ async def main():
         print(f"Existing '{os.path.basename(out_path)}' is language='{prev_lang}' "
               f"but REPLY_LANGUAGE='{REPLY_LANGUAGE}' — re-rendering everything.")
 
-    client = AsyncOpenAI()
+    # The same DeepSeek client the live renderer uses, so an offline wording
+    # comes from the same model that would have produced it on a call.
+    client = fr._client
     print(f"Incremental render → {os.path.basename(out_path)} "
           f"(language={REPLY_LANGUAGE}, model={args.model}, temp={args.temperature}, "
           f"n={args.n})\n")

@@ -1,55 +1,134 @@
 # Jewelry Tech Helpline — AI Voice Agent
 
 Hinglish voice agent for the jewelry tag-scanning / MRP software.
-**Browser mic → Deepgram STT → deterministic FAQ router (OpenAI) → ElevenLabs TTS → MongoDB.**
+**Browser mic → Deepgram STT → deterministic FAQ router (DeepSeek V4 Flash) → ElevenLabs TTS → MongoDB.**
 No telephony — you talk to the agent directly from a web page using your laptop microphone.
+
+One server, three pages:
+
+| URL | What it is |
+| --- | --- |
+| `/` | the caller-facing mic page — talk to the agent |
+| `/crm` | **password-protected console.** Record new questions and answers by voice, pre-warm their spoken wording, download the bank as Excel |
+| `/crm/unavailable` | inside that console: every turn the agent could not answer, could not speak, or answered with nothing |
 
 ## How a session flows
 
 Open `http://localhost:5000` → click the mic and allow access → the page captures your
 microphone, downsamples to 8 kHz μ-law, and streams it over a WebSocket to `/ws` in
-`web_app.py` → a `BrowserTransport` adapter feeds that audio into the same `CallSession`
-engine in `agent.py`: audio → Deepgram (nova-3, multi) → on end-of-speech,
+`main.py` → a `BrowserTransport` adapter feeds that audio into the same `CallSession`
+engine in `agent.py`: audio → Deepgram (Flux, multi) → on end-of-speech,
 `faq_router.route_and_render` classifies the turn to exactly one action
-(ANSWER Qid / ASK / ROUTE / DECLINE / GUARD) and rewords only that approved text → tokens
-stream into ElevenLabs' input-streaming WebSocket → μ-law audio streams back to the browser
-and plays. Barge-in with echo filtering, TTS caching for greeting/closing, pre-warmed
-connections, and Mongo transcript save on cleanup all still run in `agent.py`. The live
-transcript is shown on the page.
+(ANSWER Qid / CLARIFY / CHAT / ASK / ROUTE / DECLINE / HANGUP) and rewords only that
+approved text → tokens stream into ElevenLabs' input-streaming WebSocket → μ-law audio
+streams back to the browser and plays. Barge-in with echo filtering, TTS caching,
+pre-warmed connections, and Mongo transcript save on cleanup all run in `agent.py`. The
+live transcript is shown on the page.
+
+## Models
+
+| Job | Model | Where |
+| --- | --- | --- |
+| Speech-to-text, live call | Deepgram `flux-general-multi` | `agent.py` |
+| Classifier + renderer (the call path) | **DeepSeek V4 Flash**, thinking off | `faq_router.py` |
+| Speech-to-text, CRM recordings | Deepgram `nova-3` (pre-recorded) | `crm.py` |
+| Dictation → clean Q&A | **DeepSeek V4 Pro**, thinking off | `crm.py` |
+| Text-to-speech | ElevenLabs `eleven_flash_v2_5` | `agent.py` |
+
+Every LLM call in the app is DeepSeek, on one key (`DEEPSEEK_API_KEY`) and one host
+(`DEEPSEEK_BASE_URL`) — the `openai` package is just the HTTP client for its
+OpenAI-compatible API. Models: `DEEPSEEK_CLASSIFIER_MODEL`, `DEEPSEEK_RENDER_MODEL`,
+`CRM_DEEPSEEK_MODEL`. Thinking is disabled on every call: on a phone line it would add
+seconds of time-to-first-token. `agent.py`, `crm.py` and `gen_variants.py` all reuse the
+one client `faq_router` builds, so there is a single warmed connection.
+
+## The question bank lives in the source
+
+`faq_router.CANONICAL_ANSWERS` is the single source of truth, mirrored as a `Qn: … / A: …`
+list inside `agent.AGENT_SYSTEM_PROMPT` (the boot-time consistency check warns if the two
+drift). An entry's `"q"` is either a plain string or a `{"subq1": …, "subq2": …}` dict of
+phrasings for the same question.
+
+**The CRM writes into those two files directly.** Saving a recorded question inserts a new
+Q-numbered block into `CANONICAL_ANSWERS` (tagged `# added via /crm on <date>`) and the
+matching `Qn:` / `A:` pair into the prompt, then updates the running process in memory —
+no restart, no second bank file. Each edit leaves a `.bak` beside the file it touched.
+Editing or deleting works on **any** entry, recorded or hand-written — the block is
+rewritten or cut out of both files in place.
+
+## Flagged calls
+
+At hangup, `CallSession.cleanup` saves the transcript plus attention flags on the same
+Mongo document: `answer_unavailable` (question not in the bank), `no_voice` (a reply was
+generated but no audio reached the caller), `no_response` (nothing was generated), and
+`needs_attention` if any of those is true. Every failing turn is listed under
+`unresolved[]` with the caller's exact words — that is what `/crm/unavailable` shows.
+
+```js
+db.conversations.find({needs_attention: true}, {unresolved: 1}).sort({timestamp: -1})
+```
+
+## The CRM (`/crm`)
+
+1. Record the **question**, any **sub-questions** (other ways callers ask the same thing),
+   and the **answer** — each field has its own mic button, and you can add as many question
+   blocks as you like. Clips go to Deepgram's pre-recorded API and come back as editable text.
+2. **DeepSeek V4 Pro** turns the raw dictation into one clean question + sub-questions +
+   answer, same facts only. Untick the box to save exactly what you recorded.
+3. Saving writes it into both source files (above) and pre-warms **only that entry**: the
+   answer is rendered into the same approved Hinglish wording the live agent uses, stored
+   in `faq_variants.json`, and synthesized into `tts_cache/`. Nothing else is re-rendered
+   or re-billed.
+4. Every row in the bank — recorded here or hand-written — has **Edit**, **Re-render**
+   and **Delete**. Edit opens the question, its sub-questions (one per line) and the
+   answer inline; saving rewrites that block in both source files in place, and if the
+   *answer* changed its Hinglish wording is re-rendered and re-synthesized on the spot.
+   Delete removes the entry from both files (a `.bak` is kept) and warns if the id is
+   still named elsewhere in `agent.py`'s policy prose.
+5. Each row also shows whether its spoken reply is `ready`, `not rendered`, `no audio`,
+   or `answer changed`. **Re-render** fixes one; **Pre-warm missing** sweeps the whole
+   bank — the same work `gen_variants.py` does offline, on demand.
+6. **Download Excel** exports the bank: one row per question with its sub-questions on
+   their own rows, answer and spoken wording alongside.
+
+Password: `CRM_PASSWORD` (default `admin@12321`), 12-hour cookie session.
 
 ## Files
 
-`web_app.py` — **run this one.** Serves the browser UI + the `/ws` audio WebSocket.
+`main.py` — **run this one.** Serves the browser UI, the `/ws` audio WebSocket, `/crm` and `/crm/unavailable`.
 `ui/talk.html` — the single-page mic interface (capture, μ-law codec, playback, transcript).
-`agent.py` — the engine: STT, turn-taking, barge-in/echo, TTS streaming, Mongo.
-`faq_router.py` — deterministic brain: `CANONICAL_ANSWERS` bank + classifier + renderer.
-`requirements.txt` — fastapi, uvicorn, websockets, aiohttp, openai, pymongo, python-dotenv.
+`agent.py` — the engine: STT, turn-taking, barge-in/echo, TTS streaming, attention flags, Mongo.
+`faq_router.py` — deterministic brain: `CANONICAL_ANSWERS` bank + classifier + renderer + bank writer.
+`crm.py` — the voice CRM: Deepgram → DeepSeek → bank → pre-warm → Excel, behind the password.
+`answer_unavailable.py` — the flagged-calls console, nested inside the CRM.
+`gen_variants.py` — offline bulk pre-render of every answer's wording + audio.
+`faq_variants.json` — the approved Hinglish wordings (written by both `gen_variants.py` and the CRM).
+`tts_cache/` — permanent μ-law clips for those wordings.
 
 ## Run
 
 ```bash
 python -m venv .venv && source .venv/bin/activate   # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
-# create .env with your DEEPGRAM_API_KEY, OPENAI_API_KEY, ELEVENLABS_API_KEY,
-# ELEVENLABS_VOICE_ID and (optional) MONGODB_URI
-python web_app.py            # or: uvicorn web_app:app --host 0.0.0.0 --port 5000
+# .env: DEEPGRAM_API_KEY, DEEPSEEK_API_KEY, ELEVENLABS_API_KEY, ELEVENLABS_VOICE_ID,
+#       MONGODB_URI (optional),
+#       CRM_PASSWORD (optional — defaults to admin@12321)
+python main.py               # or: uvicorn main:app --host 0.0.0.0 --port 5000
 ```
 
 Then open **http://localhost:5000** and click the mic. Use headphones so the agent doesn't
 hear its own voice through your speakers. (A browser gives the mic to a page only on
-`localhost` or over HTTPS — for access from another device, put it behind an HTTPS proxy.)
+`localhost` or over HTTPS — that applies to the CRM's recording buttons too, so put it
+behind an HTTPS proxy for access from another device.)
 
-## Fixes applied to your agent.py (marked `# FIX:` in code)
+## Fixes applied to agent.py (marked `# FIX:` / `SILENT-REPLY FIX` in code)
 
-1. **Hangup regex corruption** — "Ok thanks for the call" had been pasted inside the Hindi pattern, splitting `फ़ोन रखो` and making bare `फ़ो` a standalone alternative, so any word containing it (फ़ोन, फ़ोटो, इंफ़ो) instantly ended the call. Repaired; the English phrase is now a proper `\b`-bounded alternative. Verified with tests.
-2. **Missing Q8** — the ANSWERING_POLICY referenced Q8 (jeweler sets own gold rates) but the bank didn't contain it. Added to both the prompt and `CANONICAL_ANSWERS` (placeholder wording — replace with your real Q8 text if it differs). Consistency check now passes.
-3. **Mongo db name** — was hardcoded to `"test"`; now `MONGODB_DB` env (default still `test` so existing data keeps working).
+1. **Hangup regex corruption** — "Ok thanks for the call" had been pasted inside the Hindi pattern, splitting `फ़ोन रखो` and making bare `फ़ो` a standalone alternative, so any word containing it (फ़ोन, फ़ोटो, इंफ़ो) instantly ended the call. Repaired; the English phrase is now a proper `\b`-bounded alternative.
+2. **Missing Q8** — the ANSWERING_POLICY referenced Q8 but the bank didn't contain it. Added to both the prompt and `CANONICAL_ANSWERS`.
+3. **Mongo db name** — was hardcoded to `"test"`; now `MONGODB_DB` env (default still `test`).
 4. **Deprecated timestamps** — `datetime.utcnow()` → `datetime.now(timezone.utc)`.
-
-## Known remaining gap (unchanged by design)
-
-The HTTP TTS fallback only fires if the TTS WebSocket produced *zero* audio; a WS death mid-reply still leaves that answer half-spoken. Left as-is to keep your logic intact — say the word if you want a resume-from-where-it-died fallback.
+5. **Silent replies** — the agent sometimes generated a reply the caller never heard. Two causes, both fixed: the TTS WebSocket returning no audio *after* its feeder had already consumed the LLM tokens (the old HTTP fallback only covered an untouched stream — the text is now re-synthesized over HTTP), and a fixed reply whose cached clip yielded nothing (now retried once straight from ElevenLabs). Anything still silent is flagged `no_voice` for review.
 
 ## Security
 
-Never commit `.env`. Rotate every credential that was ever pasted into a chat, repo, or screenshot (Deepgram, OpenAI, ElevenLabs) and replace the guessable MongoDB user password with a strong one.
+Never commit `.env`. Rotate every credential that was ever pasted into a chat, repo, or screenshot (Deepgram, OpenAI, DeepSeek, ElevenLabs) and replace the guessable MongoDB user password with a strong one. Change `CRM_PASSWORD` from the default before exposing the server beyond localhost — the CRM writes to your source files.

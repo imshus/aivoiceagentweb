@@ -549,6 +549,10 @@ CANONICAL_ANSWERS: dict[str, dict] = {
              "data on your tags exactly as they are and calculates the MRP "
              "for you.",
     },
+    "Q55": {  # added via /crm on 2026-08-02
+        "q": "Demo question",
+        "a": "Demo answer.",
+    },
 }
 
 # ── CRM-added entries ────────────────────────────────────────────────────────

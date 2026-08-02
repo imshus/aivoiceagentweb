@@ -33,6 +33,13 @@ from agent import (
     prewarm_connections,
     shutdown as agent_shutdown,
 )
+# One password-protected admin console at /crm: record new questions/answers
+# into the agent's bank (crm.py) and review the ones it could not answer
+# (answer_unavailable.py, nested at /crm/unavailable).
+from crm import router as crm_router
+from answer_unavailable import router as unavailable_router
+
+crm_router.include_router(unavailable_router)
 
 load_dotenv()
 
@@ -109,6 +116,7 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title="Jewelry Tech Helpline — Browser Agent", lifespan=lifespan)
+app.include_router(crm_router)   # → /crm and /crm/unavailable (password-protected)
 
 
 @app.get("/")

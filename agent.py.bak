@@ -357,6 +357,8 @@ Q53: I do not write diamond rates on my tags; we use packet codes. How will the 
 A: Sir, set your packet codes once in Masters in the backend. After that, the software detects whichever packet code is written on the tag and applies the rate automatically.
 Q54: Will I have to change my tags according to your system?
 A: No, sir. You do not have to change any tags. The software scans the data on your tags exactly as they are and calculates the MRP for you.
+Q55: Demo question
+A: Demo answer.
 
 
 
