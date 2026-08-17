@@ -39,8 +39,8 @@ ELEVENLABS_VOICE_ID = os.getenv("ELEVENLABS_VOICE_ID")
 # biggest cut to time-to-first-audio. Override with ELEVENLABS_MODEL in .env
 # if you want max quality over speed (eleven_multilingual_v2 / eleven_turbo_v2_5).
 ELEVENLABS_MODEL = os.getenv("ELEVENLABS_MODEL", "eleven_flash_v2_5")
-# The brain model, shared with faq_router's renderer: DeepSeek V4 Flash, with
-# thinking OFF so time-to-first-token stays phone-fast. Set it (and the
+# The brain model, shared with faq_router's renderer: OpenAI GPT-5.6 Luna, with
+# reasoning OFF so time-to-first-token stays phone-fast. Set it (and the
 # classifier) in .env — see faq_router for the exact variable names.
 # Seconds of silence (after the last finalized word) before we treat the user
 # as done speaking and start replying. Deepgram already endpoints (~300ms), so
@@ -615,13 +615,13 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(me
 logger = logging.getLogger("agent")
 
 # Deterministic FAQ router (classify → reword one approved answer). Imported
-# here because it owns the DeepSeek client — the legacy free-generation path and
+# here because it owns the OpenAI client — the legacy free-generation path and
 # the pre-warm below reuse it, so there is one warmed HTTP/DNS path and one
 # place that configures the brain.
 import faq_router as _fr
-llm_client = _fr._client          # DeepSeek, via the OpenAI-compatible SDK
+llm_client = _fr._client          # OpenAI (GPT-5.6 Luna by default)
 LLM_MODEL = _fr.RENDER_MODEL
-LLM_EXTRA = _fr.LLM_EXTRA         # thinking:{type:disabled}
+llm_params = _fr.llm_params       # max_completion_tokens + reasoning_effort
 
 from faq_router import (route_and_render, try_fast_answer, speculate,
                         drop_speculation, iter_variant_texts,
@@ -1116,16 +1116,15 @@ async def stream_llm_response(conversation_history: list[dict]) -> AsyncGenerato
     try:
         stream = await llm_client.chat.completions.create(
             model=LLM_MODEL,
-            extra_body=LLM_EXTRA,
             messages=conversation_history,
             # FIX (full answers): safety ceiling raised 240 → 400 — multi-fact
             # Hinglish/Devanagari answers were hitting the cap mid-sentence.
-            max_tokens=400,
-            # Lower temperature = more deterministic. The same question (however it's
-            # phrased) converges to the SAME factual answer instead of drifting to a
-            # different wording/fact each time. Kept slightly above 0 so replies still
-            # sound natural and not robotically identical word-for-word.
-            temperature=0.0,
+            # temperature=0.0 used to hold the same question to the same
+            # factual answer instead of drifting. GPT-5.x rejects the
+            # parameter; reasoning_effort="none" is what keeps this path
+            # tight and fast now, and the approved bank is what keeps the
+            # facts from drifting.
+            **llm_params(400, temperature=0.0),
             stream=True,
         )
         async for chunk in stream:
@@ -2426,15 +2425,16 @@ async def prewarm_tts_cache():
             logger.warning(f"Could not write prewarm manifest: {e}")
 
 async def prewarm_llm():
-    """Fire a tiny throwaway completion so the DeepSeek connection pool (DNS+TLS)
+    """Fire a tiny throwaway completion so the OpenAI connection pool (DNS+TLS)
     is hot. Without this the FIRST reply of a call pays connection setup on top of
     generation latency — which is exactly the 'slow at the start' problem."""
     try:
         stream = await llm_client.chat.completions.create(
             model=LLM_MODEL,
-            extra_body=LLM_EXTRA,
             messages=[{"role": "user", "content": "hi"}],
-            max_tokens=1,
+            # 16, not 1: a reasoning model can spend the whole budget before
+            # emitting a visible token, and a warm-up that 400s warms nothing.
+            **llm_params(16),
             stream=True,
         )
         async for _ in stream:

@@ -8,9 +8,8 @@ WHAT IT DOES — one recording round trip per field:
      the same thing), and the ANSWER, each with its own mic button. Add as many
      question blocks as you like before saving.
   2. Each clip goes to Deepgram (pre-recorded API) and comes back as text.
-  3. DeepSeek V4 Pro turns those raw dictations into ONE clean question +
-     sub-questions + answer — same facts, no additions — and you can still edit
-     the text.
+  3. OpenAI turns those raw dictations into ONE clean question + sub-questions
+     + answer — same facts, no additions — and you can still edit the text.
   4. Saving writes the entry straight into the SOURCE: a new Q-numbered block
      in faq_router.CANONICAL_ANSWERS and the matching "Qn: … / A: …" pair in
      agent.AGENT_SYSTEM_PROMPT, then rebuilds the classifier menu in memory —
@@ -22,7 +21,7 @@ WHAT IT DOES — one recording round trip per field:
      its sub-questions, the answer).
 
 Keys, all from the SAME .env the agent uses: DEEPGRAM_API_KEY (speech-to-text),
-DEEPSEEK_API_KEY (clean-up AND the Hinglish rendering, same key as the call
+OPENAI_API_KEY (clean-up AND the Hinglish rendering, same key as the call
 path), ELEVENLABS_API_KEY (audio). Password: CRM_PASSWORD, default
 "admin@12321".
 
@@ -60,19 +59,17 @@ CRM_STT_URL = ("https://api.deepgram.com/v1/listen"
                f"?model={CRM_STT_MODEL}&language=multi&smart_format=true"
                "&punctuate=true")
 
-# Clean-up model: DeepSeek V4 Pro over the OpenAI-compatible chat API — the same
-# provider (and the same env-var names) the Account Desk app uses, so one key
-# covers both. Point DEEPSEEK_BASE_URL at Fireworks to keep the traffic in the
-# US; the default is DeepSeek's own endpoint.
-DEEPSEEK_API_KEY = os.getenv("DEEPSEEK_API_KEY")
-DEEPSEEK_BASE_URL = os.getenv("DEEPSEEK_BASE_URL", "https://api.deepseek.com")
-CRM_DEEPSEEK_MODEL = os.getenv("CRM_DEEPSEEK_MODEL",
-                               os.getenv("DEEPSEEK_CHAT_MODEL", "deepseek-v4-pro"))
-# V4's thinking mode is OFF here: this is a short, well-specified rewrite, and
-# thinking only adds seconds to the Save click. Set CRM_DEEPSEEK_THINKING=on to
-# turn it back on. Which parameter disables it differs by host — DeepSeek's own
-# API takes thinking:{type:disabled}, Fireworks & co take reasoning_effort:none.
-CRM_DEEPSEEK_THINKING = os.getenv("CRM_DEEPSEEK_THINKING", "off").lower() == "on"
+# Clean-up model: the SAME OpenAI model and key the call path uses (see
+# faq_router). Nothing here is latency-critical — it runs once, on a Save click,
+# not on a live line — but the rewrite is short and well-specified, so the cheap
+# tier is the right call and one key covers the whole app.
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+CRM_MODEL = os.getenv("CRM_OPENAI_MODEL", fr.RENDER_MODEL)
+# Reasoning stays off for the same reason it is off on the call path: this is a
+# mechanical restructure of dictated text, not a problem to think about. Set
+# CRM_REASONING_EFFORT=low if messy dictation starts coming back badly split.
+CRM_REASONING_EFFORT = os.getenv("CRM_REASONING_EFFORT",
+                                 fr.REASONING_EFFORT)
 
 # token -> expiry (monotonic-ish wall clock). In-process only: restarting the
 # server logs everyone out, which is the right default for an admin console.
@@ -166,7 +163,7 @@ async def transcribe(request: Request, audio: UploadFile = File(...)):
     return {"text": text}
 
 
-# ── raw dictation → clean question / sub-questions / answer (DeepSeek) ──────
+# ── raw dictation → clean question / sub-questions / answer (OpenAI) ────────
 
 _CLEANUP_JSON = """
 
@@ -195,30 +192,20 @@ Turn them into one clean bank entry:
 - If the answer dictation is empty or says nothing usable, return an empty
   answer rather than inventing one.""" + _CLEANUP_JSON
 
-_deepseek_client = None
+def _llm():
+    """The call path's warmed OpenAI client, reused rather than duplicated —
+    same key, same host, one connection pool."""
+    return fr._client
 
 
-def _deepseek():
-    global _deepseek_client
-    if _deepseek_client is None:
-        from openai import AsyncOpenAI  # DeepSeek speaks the OpenAI chat API
-        _deepseek_client = AsyncOpenAI(api_key=DEEPSEEK_API_KEY,
-                                       base_url=DEEPSEEK_BASE_URL)
-    return _deepseek_client
-
-
-def _thinking_param() -> dict:
-    """The host-specific way to switch V4's thinking mode off (see above)."""
-    if CRM_DEEPSEEK_THINKING:
-        return {}
-    override = os.getenv("DEEPSEEK_THINKING_PARAM", "")
-    if override == "thinking":
-        return {"thinking": {"type": "disabled"}}
-    if override == "reasoning_effort":
-        return {"reasoning_effort": "none"}
-    return ({"thinking": {"type": "disabled"}}
-            if "api.deepseek.com" in DEEPSEEK_BASE_URL
-            else {"reasoning_effort": "none"})
+def _cleanup_params(max_tokens: int, temperature: float = 0.0) -> dict:
+    """Sampling kwargs for the clean-up call. Delegates to faq_router so the
+    reasoning-vs-classic decision lives in exactly one place app-wide, then
+    applies the CRM's own effort override on top."""
+    params = fr.llm_params(max_tokens, temperature=temperature)
+    if "reasoning_effort" in params:
+        params["reasoning_effort"] = CRM_REASONING_EFFORT
+    return params
 
 
 async def _clean_with_llm(question: str, subs: list[str], answer: str) -> dict:
@@ -227,16 +214,14 @@ async def _clean_with_llm(question: str, subs: list[str], answer: str) -> dict:
     user = (f"QUESTION (dictated):\n{question}\n\n"
             f"OTHER PHRASINGS (dictated):\n{subs_txt}\n\n"
             f"ANSWER (dictated):\n{answer}")
-    resp = await _deepseek().chat.completions.create(
-        model=CRM_DEEPSEEK_MODEL,
-        temperature=0.0,
-        max_tokens=2000,
+    resp = await _llm().chat.completions.create(
+        model=CRM_MODEL,
+        **_cleanup_params(2000, temperature=0.0),
         response_format={"type": "json_object"},
         messages=[
             {"role": "system", "content": _CLEANUP_SYSTEM},
             {"role": "user", "content": user},
         ],
-        extra_body=_thinking_param(),
     )
     text = (resp.choices[0].message.content or "").strip()
     out = json.loads(text)
@@ -274,9 +259,7 @@ async def _render_hinglish(entry: dict) -> str:
     identical in style to every other answer in the bank."""
     resp = await fr._client.chat.completions.create(
         model=fr.RENDER_MODEL,
-        temperature=0.3,
-        max_tokens=400,
-        extra_body=fr.LLM_EXTRA,
+        **fr.llm_params(400, temperature=0.3),
         messages=[
             {"role": "system", "content": fr._RENDER_SYSTEM},
             {"role": "user",
@@ -413,15 +396,15 @@ async def save(request: Request, body: SaveIn):
 
     cleaned = {"question": question, "subquestions": subs, "answer": answer}
     if body.clean:
-        if not DEEPSEEK_API_KEY:
+        if not OPENAI_API_KEY:
             return JSONResponse(
-                {"error": "DEEPSEEK_API_KEY is not set in .env — add it, or "
-                          "switch off 'clean up with DeepSeek' to save the text "
+                {"error": "OPENAI_API_KEY is not set in .env — add it, or "
+                          "switch off 'clean up with AI' to save the text "
                           "exactly as recorded"}, status_code=503)
         try:
             cleaned = await _clean_with_llm(question, subs, answer)
         except Exception as e:
-            logger.error(f"DeepSeek clean-up failed: {e}")
+            logger.error(f"Clean-up failed: {e}")
             return JSONResponse({"error": f"clean-up failed: {e}"}, status_code=502)
         if not cleaned["question"] or not cleaned["answer"]:
             return JSONResponse(
@@ -608,7 +591,7 @@ async def health():
     return {"status": "healthy", "bank": len(fr.CANONICAL_ANSWERS),
             "crm_entries": len(fr.CUSTOM_IDS),
             "stt": bool(DEEPGRAM_API_KEY),
-            "cleanup_model": CRM_DEEPSEEK_MODEL if DEEPSEEK_API_KEY else None}
+            "cleanup_model": CRM_MODEL if OPENAI_API_KEY else None}
 
 
 # ── pages ────────────────────────────────────────────────────────────────────
@@ -645,6 +628,12 @@ _CSS = """
        box-shadow:0 0 0 3px var(--accent-soft)}
   textarea{resize:vertical;min-height:64px}
   ::placeholder{color:#98a2b3}
+  /* Phones: 16px is the smallest size iOS Safari will not zoom into on focus,
+     and touch targets get a little more height. */
+  @media (max-width:720px){
+    input,textarea{font-size:16px;padding:11px}
+    button,a.btn{padding:9px 13px}
+  }
 """
 
 _CSS_LOGIN = """
@@ -659,6 +648,9 @@ _CSS_LOGIN = """
   button:hover{background:#1d4ed8}
   .err{color:var(--red);background:var(--red-soft);border:1px solid #fecdca;
        border-radius:8px;padding:8px 10px;font-size:13.5px;margin:14px 0 0}
+  @media (max-width:420px){
+    .wrap{margin:8vh 16px;padding:26px 20px}
+  }
 """
 
 # Inline stroke icons (16px, currentColor). Defined once as a plain string so
@@ -773,6 +765,53 @@ _CSS_APP = """
   label.chk{display:flex;gap:8px;align-items:center;color:var(--dim);
         font-size:13.5px}
   label.chk input{width:auto}
+  .hdr-title{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;min-width:0}
+  .hdr-acts{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+
+  /* ── narrow screens ──────────────────────────────────────────────────────
+     Below 720px the five-column table cannot hold its shape, so each row
+     becomes a card and every cell carries its own label (data-l). Everything
+     else just tightens up. */
+  @media (max-width:900px){
+    main{padding:18px 16px 70px}
+    header{padding:12px 16px}
+  }
+  @media (max-width:720px){
+    /* A sticky header would eat a fifth of a phone screen once the actions
+       wrap, so on phones it scrolls away with the page. */
+    header{position:static;padding:10px 12px;gap:8px;align-items:flex-start}
+    .hdr-title{gap:2px;flex-direction:column;align-items:flex-start}
+    h1{font-size:16px}
+    .spacer{display:none}
+    .hdr-acts{width:100%;gap:8px}
+    .hdr-acts>*{flex:1 1 calc(50% - 4px);min-width:0}   /* two per row */
+    .hdr-acts form{display:flex}
+    .wide-only{display:none}          /* "Pre-warm", "Download" — labels fit */
+    .hdr-acts button{justify-content:center;font-size:13px;padding:8px 10px;
+         width:100%}
+    main{padding:14px 12px 64px}
+    .block{padding:14px;border-radius:10px;margin-bottom:12px}
+    .label{flex-wrap:wrap}
+
+    table,tbody,tr,td{display:block;width:100%}
+    thead{display:none}
+    tbody tr{border:1px solid var(--line);border-radius:10px;padding:12px 14px;
+         margin-bottom:12px;background:var(--card)}
+    tbody tr:hover{background:var(--card)}
+    tbody tr:last-child{margin-bottom:0}
+    td{border-bottom:0;padding:6px 0;white-space:normal}
+    td[data-l]::before{content:attr(data-l);display:block;font-size:11px;
+         font-weight:500;text-transform:uppercase;letter-spacing:.04em;
+         color:var(--dim);margin-bottom:3px}
+    tbody td:last-child{width:auto;white-space:normal;padding-top:10px}
+    /* Actions sit side by side once the row is a card — there is width for it. */
+    .row-acts{flex-direction:row;flex-wrap:wrap}
+    .row-acts button{width:auto;min-width:0;flex:1 1 auto;justify-content:center}
+    .qid{font-size:12px}
+  }
+  @media (max-width:420px){
+    .hdr-acts button{font-size:12.5px;gap:5px}
+  }
 """
 
 APP_PAGE = f"""<!doctype html>
@@ -781,23 +820,29 @@ APP_PAGE = f"""<!doctype html>
 <title>Question bank CRM</title><style>{_CSS}{_CSS_APP}
 </style></head><body>
 <header>
-  <h1>Question bank CRM</h1>
-  <span class="msg" id="bankinfo"></span>
+  <div class="hdr-title">
+    <h1>Question bank CRM</h1>
+    <span class="msg" id="bankinfo"></span>
+  </div>
   <div class="spacer"></div>
-  <button class="ghost" onclick="location.href='/crm/unavailable'">
-    {ICONS["alert"]} Unanswered</button>
-  <button class="ghost" onclick="warmAll()">{ICONS["spark"]} Pre-warm missing</button>
-  <button class="dl" onclick="dl()">{ICONS["download"]} Download whole bank</button>
-  <form method="post" action="/crm/logout" style="display:inline">
-    <button class="ghost" type="submit">{ICONS["logout"]} Sign out</button>
-  </form>
+  <div class="hdr-acts">
+    <button class="ghost" onclick="location.href='/crm/unavailable'">
+      {ICONS["alert"]} <span>Unanswered</span></button>
+    <button class="ghost" onclick="warmAll()">
+      {ICONS["spark"]} <span>Pre-warm<span class="wide-only"> missing</span></span></button>
+    <button class="dl" onclick="dl()">
+      {ICONS["download"]} <span>Download<span class="wide-only"> whole bank</span></span></button>
+    <form method="post" action="/crm/logout" style="display:inline">
+      <button class="ghost" type="submit">{ICONS["logout"]} <span>Sign out</span></button>
+    </form>
+  </div>
 </header>
 <main>
   <div id="blocks"></div>
   <div class="row" style="margin-bottom:26px">
     <button class="add" onclick="addBlock()">{ICONS["plus"]} Add another question</button>
     <label class="chk"><input type="checkbox" id="clean" checked>
-      Clean up with DeepSeek before saving</label>
+      Clean up with AI before saving</label>
   </div>
 
   <div class="block">
@@ -949,8 +994,8 @@ function edit(qid){{
   const tr = [...document.querySelectorAll('#rows tr')]
       .find(r => r.querySelector('.qid').textContent === qid);
   tr.innerHTML = `
-    <td class="qid">${{esc(qid)}}</td>
-    <td colspan="4">
+    <td class="qid" data-l="ID">${{esc(qid)}}</td>
+    <td colspan="4" class="edit-cell">
       <div class="label">Question</div>
       <textarea id="eq" style="min-height:52px">${{esc(it.question)}}</textarea>
       <div class="label" style="margin-top:10px">Sub-questions — one per line</div>
@@ -1029,18 +1074,18 @@ async function load(){{
     d.items.length ? '' : '— nothing added yet';
   rows.innerHTML = d.items.map(it => `
     <tr>
-      <td class="qid">${{esc(it.qid)}}</td>
-      <td>${{esc(it.question)}}
+      <td class="qid" data-l="ID">${{esc(it.qid)}}</td>
+      <td data-l="Question">${{esc(it.question)}}
         ${{it.subquestions.length ? `<div class="subs">also: ` +
            it.subquestions.map(esc).join(' · ') + `</div>` : ''}}</td>
-      <td>${{esc(it.answer)}}</td>
-      <td>
+      <td data-l="Answer">${{esc(it.answer)}}</td>
+      <td data-l="Spoken reply">
         <span class="pill ${{it.ready ? 'ok' : 'warn'}}">${{
           it.ready ? 'ready' : (it.stale ? 'answer changed'
                     : (it.hinglish ? 'no audio' : 'not rendered'))}}</span>
         ${{it.hinglish ? `<div class="subs">${{esc(it.hinglish)}}</div>` : ''}}
       </td>
-      <td>
+      <td class="acts-cell">
         <div class="row-acts">
         <button class="add" onclick="edit('${{esc(it.qid)}}')">${{I.pencil}} Edit</button>
         <button class="add" title="Re-record the spoken Hinglish reply"

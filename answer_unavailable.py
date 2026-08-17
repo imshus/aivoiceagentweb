@@ -250,6 +250,27 @@ PAGE = """<!doctype html>
   .nav{margin-left:auto;color:var(--fg);background:#fff;text-decoration:none;
        font-size:14px;border:1px solid var(--line);border-radius:8px;padding:8px 14px}
   .nav:hover{background:#f9fafb;border-color:#d0d5dd}
+  /* ── narrow screens ───────────────────────────────────────────────────── */
+  @media (max-width:900px){
+    main{padding:18px 16px 60px}
+    header{padding:12px 16px}
+  }
+  @media (max-width:720px){
+    header{padding:10px 12px;gap:8px}
+    h1{font-size:16px}
+    .stats{gap:10px;font-size:12.5px;order:3;width:100%}
+    .nav{margin-left:auto;font-size:13px;padding:7px 11px}
+    main{padding:14px 12px 56px}
+    select,input[type=text]{font-size:16px;padding:10px 11px}
+    select{width:100%}
+    .card{padding:14px;border-radius:10px}
+    /* Question and type tag stack, so neither gets squeezed to a sliver. */
+    .row{flex-direction:column;gap:8px}
+    .row .tag{align-self:flex-start;order:-1}
+    .q{font-size:15px}
+    .meta{gap:8px;font-size:12px}
+    button,a.nav{padding:8px 12px}
+  }
 </style></head><body>
 <header>
   <h1>Unanswered questions</h1>

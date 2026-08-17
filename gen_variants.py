@@ -2,7 +2,7 @@
 """Offline pre-renderer for FAQ answer variants — INCREMENTAL.
 
 Run this ONCE after you add or edit a question in faq_router.py (needs
-DEEPSEEK_API_KEY + ELEVENLABS_API_KEY + network). It produces faq_variants.json
+OPENAI_API_KEY + ELEVENLABS_API_KEY + network). It produces faq_variants.json
 next to faq_router.py.
 The live agent then speaks these approved wordings for exact-match questions
 WITHOUT calling the render LLM, and its pre-synthesized audio answers common
@@ -87,9 +87,11 @@ async def _one(client, model, temperature, entry, earlier):
             f"{diff}\n{_RENDER_NUDGE}")
     resp = await client.chat.completions.create(
         model=model,
-        temperature=temperature,
-        max_tokens=400,
-        extra_body=fr.LLM_EXTRA,
+        # --temperature is only honoured under OPENAI_CLASSIC_SAMPLING; GPT-5.x
+        # rejects it. The variety across wordings does not depend on it anyway —
+        # it comes from the `diff` block above, which shows the model every
+        # wording it has already produced and asks for a clearly different one.
+        **fr.llm_params(400, temperature=temperature),
         messages=[
             {"role": "system", "content": _RENDER_SYSTEM},
             {"role": "user", "content": user},
@@ -168,8 +170,10 @@ async def main():
     ap.add_argument("--out", default="faq_variants.json",
                     help="output path (default faq_variants.json, next to this script)")
     ap.add_argument("--temperature", type=float, default=0.7,
-                    help="render temperature (default 0.7 — more variety than "
-                         "the live 0.3)")
+                    help="render temperature (default 0.7). Ignored unless "
+                         "OPENAI_CLASSIC_SAMPLING=1 — GPT-5.x rejects the "
+                         "parameter; variety comes from the 'give me a "
+                         "different wording' prompt instead")
     ap.add_argument("--model", default=RENDER_MODEL,
                     help=f"render model (default {RENDER_MODEL})")
     ap.add_argument("--force", action="store_true",
@@ -202,7 +206,7 @@ async def main():
         print(f"Existing '{os.path.basename(out_path)}' is language='{prev_lang}' "
               f"but REPLY_LANGUAGE='{REPLY_LANGUAGE}' — re-rendering everything.")
 
-    # The same DeepSeek client the live renderer uses, so an offline wording
+    # The same OpenAI client the live renderer uses, so an offline wording
     # comes from the same model that would have produced it on a call.
     client = fr._client
     print(f"Incremental render → {os.path.basename(out_path)} "

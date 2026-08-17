@@ -1,7 +1,7 @@
 # Jewelry Tech Helpline — AI Voice Agent
 
 Hinglish voice agent for the jewelry tag-scanning / MRP software.
-**Browser mic → Deepgram STT → deterministic FAQ router (DeepSeek V4 Flash) → ElevenLabs TTS → MongoDB.**
+**Browser mic → Deepgram STT → deterministic FAQ router (OpenAI GPT-5.6 Luna) → ElevenLabs TTS → MongoDB.**
 No telephony — you talk to the agent directly from a web page using your laptop microphone.
 
 One server, three pages:
@@ -30,17 +30,27 @@ live transcript is shown on the page.
 | Job | Model | Where |
 | --- | --- | --- |
 | Speech-to-text, live call | Deepgram `flux-general-multi` | `agent.py` |
-| Classifier + renderer (the call path) | **DeepSeek V4 Flash**, thinking off | `faq_router.py` |
+| Classifier + renderer (the call path) | **OpenAI `gpt-5.6-luna`**, reasoning off | `faq_router.py` |
 | Speech-to-text, CRM recordings | Deepgram `nova-3` (pre-recorded) | `crm.py` |
-| Dictation → clean Q&A | **DeepSeek V4 Pro**, thinking off | `crm.py` |
+| Dictation → clean Q&A | **OpenAI `gpt-5.6-luna`**, reasoning off | `crm.py` |
 | Text-to-speech | ElevenLabs `eleven_flash_v2_5` | `agent.py` |
 
-Every LLM call in the app is DeepSeek, on one key (`DEEPSEEK_API_KEY`) and one host
-(`DEEPSEEK_BASE_URL`) — the `openai` package is just the HTTP client for its
-OpenAI-compatible API. Models: `DEEPSEEK_CLASSIFIER_MODEL`, `DEEPSEEK_RENDER_MODEL`,
-`CRM_DEEPSEEK_MODEL`. Thinking is disabled on every call: on a phone line it would add
-seconds of time-to-first-token. `agent.py`, `crm.py` and `gen_variants.py` all reuse the
-one client `faq_router` builds, so there is a single warmed connection.
+Every LLM call in the app is OpenAI, on one key (`OPENAI_API_KEY`) and one host
+(`OPENAI_BASE_URL`, unset = OpenAI's own). Models: `OPENAI_CLASSIFIER_MODEL`,
+`OPENAI_RENDER_MODEL`, `CRM_OPENAI_MODEL`. Luna is the cheap, high-volume tier — neither
+job needs a frontier model, since the classifier only picks an entry out of an approved
+bank and the renderer only rewords text that is already signed off.
+
+Reasoning effort is `none` everywhere: on a phone line, thinking tokens are seconds of
+dead air before the first word. Raise `OPENAI_REASONING_EFFORT` only against a measured
+gain — every step above `none` is paid on *every* caller turn.
+
+GPT-5.x is a reasoning family, so Chat Completions **rejects** `temperature` and
+`max_tokens` outright. All six call sites go through `faq_router.llm_params()`, which
+sends `max_completion_tokens` + `reasoning_effort` instead; set
+`OPENAI_CLASSIC_SAMPLING=1` if you ever point `OPENAI_BASE_URL` at a host that still
+wants the classic knobs. `agent.py`, `crm.py` and `gen_variants.py` all reuse the one
+client `faq_router` builds, so there is a single warmed connection.
 
 ## The question bank lives in the source
 
@@ -73,7 +83,7 @@ db.conversations.find({needs_attention: true}, {unresolved: 1}).sort({timestamp:
 1. Record the **question**, any **sub-questions** (other ways callers ask the same thing),
    and the **answer** — each field has its own mic button, and you can add as many question
    blocks as you like. Clips go to Deepgram's pre-recorded API and come back as editable text.
-2. **DeepSeek V4 Pro** turns the raw dictation into one clean question + sub-questions +
+2. **OpenAI** turns the raw dictation into one clean question + sub-questions +
    answer, same facts only. Untick the box to save exactly what you recorded.
 3. Saving writes it into both source files (above) and pre-warms **only that entry**: the
    answer is rendered into the same approved Hinglish wording the live agent uses, stored
@@ -99,7 +109,7 @@ Password: `CRM_PASSWORD` (default `admin@12321`), 12-hour cookie session.
 `ui/talk.html` — the single-page mic interface (capture, μ-law codec, playback, transcript).
 `agent.py` — the engine: STT, turn-taking, barge-in/echo, TTS streaming, attention flags, Mongo.
 `faq_router.py` — deterministic brain: `CANONICAL_ANSWERS` bank + classifier + renderer + bank writer.
-`crm.py` — the voice CRM: Deepgram → DeepSeek → bank → pre-warm → Excel, behind the password.
+`crm.py` — the voice CRM: Deepgram → OpenAI → bank → pre-warm → Excel, behind the password.
 `answer_unavailable.py` — the flagged-calls console, nested inside the CRM.
 `gen_variants.py` — offline bulk pre-render of every answer's wording + audio.
 `faq_variants.json` — the approved Hinglish wordings (written by both `gen_variants.py` and the CRM).
@@ -110,7 +120,7 @@ Password: `CRM_PASSWORD` (default `admin@12321`), 12-hour cookie session.
 ```bash
 python -m venv .venv && source .venv/bin/activate   # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
-# .env: DEEPGRAM_API_KEY, DEEPSEEK_API_KEY, ELEVENLABS_API_KEY, ELEVENLABS_VOICE_ID,
+# .env: DEEPGRAM_API_KEY, OPENAI_API_KEY, ELEVENLABS_API_KEY, ELEVENLABS_VOICE_ID,
 #       MONGODB_URI (optional),
 #       CRM_PASSWORD (optional — defaults to admin@12321)
 python main.py               # or: uvicorn main:app --host 0.0.0.0 --port 5000
@@ -131,4 +141,4 @@ behind an HTTPS proxy for access from another device.)
 
 ## Security
 
-Never commit `.env`. Rotate every credential that was ever pasted into a chat, repo, or screenshot (Deepgram, OpenAI, DeepSeek, ElevenLabs) and replace the guessable MongoDB user password with a strong one. Change `CRM_PASSWORD` from the default before exposing the server beyond localhost — the CRM writes to your source files.
+Never commit `.env`. Rotate every credential that was ever pasted into a chat, repo, or screenshot (Deepgram, OpenAI, ElevenLabs) and replace the guessable MongoDB user password with a strong one. Change `CRM_PASSWORD` from the default before exposing the server beyond localhost — the CRM writes to your source files.

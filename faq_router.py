@@ -47,24 +47,23 @@ from openai import AsyncOpenAI
 
 # agent.py already loads .env before importing this module; doing it here too
 # (it is idempotent) keeps faq_router usable on its own — a tool that imports
-# only the bank would otherwise fail with "DEEPSEEK_API_KEY is missing".
+# only the bank would otherwise fail with "OPENAI_API_KEY is missing".
 load_dotenv()
 
 logger = logging.getLogger("faq_router")
 
-# ── The brain: DeepSeek, end to end ─────────────────────────────────────────
+# ── The brain: OpenAI, end to end ───────────────────────────────────────────
 # Both jobs on the call path — classify the turn, then reword the one approved
-# answer — run on DeepSeek V4 Flash. It speaks the OpenAI chat API, so the
-# `openai` package is used purely as the HTTP client; there is no OpenAI account
-# in this path any more. Point DEEPSEEK_BASE_URL at Fireworks (or any other
-# OpenAI-compatible host) to move where it runs; the model names travel with it.
-DEEPSEEK_BASE_URL = os.getenv("DEEPSEEK_BASE_URL", "https://api.deepseek.com")
-# The old OPENAI_* names are still read as a fallback so an existing deployment
-# (Railway variables, an old .env) keeps working after the swap.
-CLASSIFIER_MODEL = os.getenv("DEEPSEEK_CLASSIFIER_MODEL",
-                             os.getenv("FAQ_CLASSIFIER_MODEL", "deepseek-v4-flash"))
-RENDER_MODEL = os.getenv("DEEPSEEK_RENDER_MODEL",
-                         os.getenv("OPENAI_MODEL", "deepseek-v4-flash"))
+# answer — run on GPT-5.6 Luna, the cheap/low-latency tier of the 5.6 family.
+# Neither job needs a frontier model: the classifier only picks an entry out of
+# an approved bank, and the renderer only rewords text that is already signed
+# off, so the money and the milliseconds both go the wrong way on a bigger tier.
+# OPENAI_BASE_URL is still honoured, so moving this to Azure OpenAI or any other
+# OpenAI-compatible host stays a one-line .env change; leave it unset for
+# OpenAI's own endpoint.
+OPENAI_BASE_URL = os.getenv("OPENAI_BASE_URL") or None
+CLASSIFIER_MODEL = os.getenv("OPENAI_CLASSIFIER_MODEL", "gpt-5.6-luna")
+RENDER_MODEL = os.getenv("OPENAI_RENDER_MODEL", "gpt-5.6-luna")
 
 # ── Latency tiers (all default ON, all safe to disable) ──────────────────────
 # FAQ_LOCAL_MATCH: Tier-0 keyword matcher — unmistakable single-entry questions
@@ -94,33 +93,47 @@ REPLY_LANGUAGE = os.getenv("REPLY_LANGUAGE", "hinglish").lower()
 def _make_client() -> AsyncOpenAI:
     """The one LLM client for the whole app — agent.py, crm.py and
     gen_variants.py all reuse it, so there is a single warmed connection."""
-    key = os.getenv("DEEPSEEK_API_KEY")
+    key = os.getenv("OPENAI_API_KEY")
     if not key:
-        raise RuntimeError("DEEPSEEK_API_KEY is missing — add it to .env. "
-                           "The classifier and renderer both run on DeepSeek.")
-    logger.info(f"Brain on DeepSeek ({DEEPSEEK_BASE_URL}): "
+        extra = (" (DEEPSEEK_API_KEY is set but no longer used — the brain "
+                 "moved to OpenAI.)" if os.getenv("DEEPSEEK_API_KEY") else "")
+        raise RuntimeError("OPENAI_API_KEY is missing — add it to .env. "
+                           "The classifier and renderer both run on OpenAI."
+                           + extra)
+    logger.info(f"Brain on OpenAI ({OPENAI_BASE_URL or 'api.openai.com'}): "
                 f"classify={CLASSIFIER_MODEL}, render={RENDER_MODEL}")
-    return AsyncOpenAI(api_key=key, base_url=DEEPSEEK_BASE_URL)
+    return AsyncOpenAI(api_key=key, base_url=OPENAI_BASE_URL)
 
 
 _client = _make_client()
 
-# V4's thinking mode must be OFF on the call path — thinking costs 5-50s of
-# TTFT, which is unusable in a phone conversation. The parameter that disables
-# it differs by host: DeepSeek's own API takes thinking:{type:disabled},
-# Fireworks and other OpenAI-compatible hosts take reasoning_effort:"none".
-def _thinking_off() -> dict:
-    override = os.getenv("DEEPSEEK_THINKING_PARAM", "")
-    if override == "thinking":
-        return {"thinking": {"type": "disabled"}}
-    if override == "reasoning_effort":
-        return {"reasoning_effort": "none"}
-    return ({"thinking": {"type": "disabled"}}
-            if "api.deepseek.com" in DEEPSEEK_BASE_URL
-            else {"reasoning_effort": "none"})
+# ── Sampling knobs, spelled the way GPT-5.x wants them ──────────────────────
+# GPT-5.x is a reasoning family, and Chat Completions REJECTS the parameters a
+# classic chat model takes — these are 400s, not warnings:
+#   • temperature / top_p  → unsupported, only the default (1) is accepted
+#   • max_tokens           → unsupported, it is max_completion_tokens now
+# What stands in for temperature is reasoning_effort, and "none" is the setting
+# OpenAI documents for voice and classification: no thinking tokens, so no dead
+# air before the first one. That is the same reason V4's thinking mode was held
+# off — on a phone line, seconds of silence read as a dropped call.
+# Raise OPENAI_REASONING_EFFORT to "low" only if a turn genuinely needs
+# deliberation; every step above "none" is paid on EVERY turn.
+REASONING_EFFORT = os.getenv("OPENAI_REASONING_EFFORT", "none")
+# Escape hatch: a non-reasoning model, or a third-party OpenAI-compatible host
+# that still wants the classic knobs. Sends temperature + max_tokens instead.
+CLASSIC_SAMPLING = os.getenv("OPENAI_CLASSIC_SAMPLING", "0").lower() in (
+    "1", "true", "yes")
 
 
-LLM_EXTRA = _thinking_off()
+def llm_params(max_tokens: int, temperature: float = 0.0) -> dict:
+    """The per-call sampling kwargs. EVERY chat.completions.create() in this
+    app splats this, so the reasoning-vs-classic difference is decided in one
+    place instead of at six call sites that would drift apart."""
+    if CLASSIC_SAMPLING:
+        return {"max_tokens": max_tokens, "temperature": temperature}
+    return {"max_completion_tokens": max_tokens,
+            "reasoning_effort": REASONING_EFFORT}
+
 
 # ── The single source of truth ───────────────────────────────────────────────
 # MUST stay in sync with the Q-ids inside agent.AGENT_SYSTEM_PROMPT — agent.py
@@ -1366,10 +1379,9 @@ async def _classify(history: list[dict], state: dict) -> dict:
     try:
         resp = await _client.chat.completions.create(
             model=CLASSIFIER_MODEL,
-            temperature=0.0,
-            max_tokens=400,  # includes the compact "reason" line (logged, not spoken)
+            # 400 includes the compact "reason" line (logged, not spoken).
+            **llm_params(400, temperature=0.0),
             response_format={"type": "json_object"},
-            extra_body=LLM_EXTRA,
             messages=[
                 {"role": "system", "content": _CLASSIFIER_SYSTEM},
                 {"role": "user", "content": f"Caller turn: {last_user}{context}"},
@@ -1394,13 +1406,13 @@ async def _render_entry(entry: dict, render_user: str) -> AsyncGenerator[str, No
     try:
         stream = await _client.chat.completions.create(
             model=RENDER_MODEL,
-            extra_body=LLM_EXTRA,
-            # 0.3: natural wording variety so replies don't sound scripted;
-            # facts stay locked because they come only from the bank text.
-            temperature=0.3,
-            # FIX (full answers): 240 was truncating Devanagari-heavy
-            # multi-fact answers mid-sentence.
-            max_tokens=400,
+            # temperature 0.3 asked for natural wording variety so replies
+            # didn't sound scripted. GPT-5.x refuses the parameter, so the
+            # variety now comes from faq_variants.json — which is the better
+            # source anyway: those wordings were reviewed once, offline.
+            # 400 (not 240): Devanagari-heavy multi-fact answers were being
+            # truncated mid-sentence.
+            **llm_params(400, temperature=0.3),
             stream=True,
             messages=[
                 {"role": "system", "content": _RENDER_SYSTEM},
