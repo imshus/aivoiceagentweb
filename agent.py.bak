@@ -39,8 +39,8 @@ ELEVENLABS_VOICE_ID = os.getenv("ELEVENLABS_VOICE_ID")
 # biggest cut to time-to-first-audio. Override with ELEVENLABS_MODEL in .env
 # if you want max quality over speed (eleven_multilingual_v2 / eleven_turbo_v2_5).
 ELEVENLABS_MODEL = os.getenv("ELEVENLABS_MODEL", "eleven_flash_v2_5")
-# The brain model, shared with faq_router's renderer: DeepSeek V4 Flash, with
-# thinking OFF so time-to-first-token stays phone-fast. Set it (and the
+# The brain model, shared with faq_router's renderer: OpenAI GPT-5.6 Luna, with
+# reasoning OFF so time-to-first-token stays phone-fast. Set it (and the
 # classifier) in .env — see faq_router for the exact variable names.
 # Seconds of silence (after the last finalized word) before we treat the user
 # as done speaking and start replying. Deepgram already endpoints (~300ms), so
@@ -191,7 +191,7 @@ _COMMON_WORDS = {
     "वो", "में", "से", "और", "तो", "भी", "न", "पर", "एक", "आप", "मैं", "हम", "इस", "उस",
 }
 # Fixed phrases (never change) — cached & pre-warmed so TTS never delays them.
-GREETING_TEXT = "नमस्ते! Jewelry Tech Helpline में आपका स्वागत है। बताइए, मैं कैसे help कर सकती हूँ?"
+GREETING_TEXT = "नमस्ते! MRPscan में आपका स्वागत है। बताइए, मैं कैसे help कर सकती हूँ?"
 # Kept SHORT on purpose: the caller hears this whole line before the line drops,
 # so a long goodbye = long "why isn't it hanging up?" delay. ~1.5s of speech.
 CLOSING_TEXT = "आपके समय के लिए धन्यवाद! Call अब end कर रही हूँ, आपका दिन शुभ रहे!"
@@ -247,8 +247,8 @@ def match_smalltalk(text: str) -> str | None:
     return None
 
 AGENT_SYSTEM_PROMPT = """
-Q1: What is this Tag Scanning Software and what does it do?
-A: It is a jewerly software that scans data written on jewelry tags and automatically calculates the final price, eliminating the need for manual calculations.
+Q1: What is this Tag Scanning Software and what does it do? / hlo
+A: It is a jewelry software that scans data written on jewelry tags and automatically calculates the final price, eliminating the need for manual calculations.
 Q2: What is meant by "manual calculation"?
 A: Whenever you need to calculate the final price of a piece of jewelry, you usually have to go through this lengthy manual process:
 Gold Price: You check the gold weight from the tag and multiply it by the current gold rate.
@@ -357,8 +357,6 @@ Q53: I do not write diamond rates on my tags; we use packet codes. How will the 
 A: Sir, set your packet codes once in Masters in the backend. After that, the software detects whichever packet code is written on the tag and applies the rate automatically.
 Q54: Will I have to change my tags according to your system?
 A: No, sir. You do not have to change any tags. The software scans the data on your tags exactly as they are and calculates the MRP for you.
-Q55: Demo question
-A: Demo answer.
 
 
 
@@ -540,7 +538,7 @@ ANSWERING_POLICY = (
     "rahe ho?' / 'awaaz aa rahi hai?' / thanks / 'ok' / 'theek hai' / 'aap AI ho?' "
     "gets ONE short warm Hinglish line back — greet, confirm you can hear, or "
     "acknowledge, then invite their question ('हेलो! बताइए, software के बारे में "
-    "क्या जानना चाहेंगे?'; identity → 'मैं Jewelry Tech Helpline की AI assistant हूँ "
+    "क्या जानना चाहेंगे?'; identity → 'मैं MRPscan की AI assistant हूँ "
     "— बताइए, कैसे help करूँ?'). Never DECLINE, never ROUTE to team, and never "
     "pitch MRP in reply to a bare greeting or acknowledgement."
     "\nThe step-2 counter-question is REQUIRED when unsure and is NOT the banned 'filler "
@@ -617,13 +615,13 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(me
 logger = logging.getLogger("agent")
 
 # Deterministic FAQ router (classify → reword one approved answer). Imported
-# here because it owns the DeepSeek client — the legacy free-generation path and
+# here because it owns the OpenAI client — the legacy free-generation path and
 # the pre-warm below reuse it, so there is one warmed HTTP/DNS path and one
 # place that configures the brain.
 import faq_router as _fr
-llm_client = _fr._client          # DeepSeek, via the OpenAI-compatible SDK
+llm_client = _fr._client          # OpenAI (GPT-5.6 Luna by default)
 LLM_MODEL = _fr.RENDER_MODEL
-LLM_EXTRA = _fr.LLM_EXTRA         # thinking:{type:disabled}
+llm_params = _fr.llm_params       # max_completion_tokens + reasoning_effort
 
 from faq_router import (route_and_render, try_fast_answer, speculate,
                         drop_speculation, iter_variant_texts,
@@ -1118,16 +1116,15 @@ async def stream_llm_response(conversation_history: list[dict]) -> AsyncGenerato
     try:
         stream = await llm_client.chat.completions.create(
             model=LLM_MODEL,
-            extra_body=LLM_EXTRA,
             messages=conversation_history,
             # FIX (full answers): safety ceiling raised 240 → 400 — multi-fact
             # Hinglish/Devanagari answers were hitting the cap mid-sentence.
-            max_tokens=400,
-            # Lower temperature = more deterministic. The same question (however it's
-            # phrased) converges to the SAME factual answer instead of drifting to a
-            # different wording/fact each time. Kept slightly above 0 so replies still
-            # sound natural and not robotically identical word-for-word.
-            temperature=0.0,
+            # temperature=0.0 used to hold the same question to the same
+            # factual answer instead of drifting. GPT-5.x rejects the
+            # parameter; reasoning_effort="none" is what keeps this path
+            # tight and fast now, and the approved bank is what keeps the
+            # facts from drifting.
+            **llm_params(400, temperature=0.0),
             stream=True,
         )
         async for chunk in stream:
@@ -1276,9 +1273,55 @@ DEEPGRAM_USE_FLUX = DEEPGRAM_MODEL.startswith("flux")
 FLUX_EOT_THRESHOLD = float(os.getenv("FLUX_EOT_THRESHOLD", "0.7"))
 FLUX_EAGER_EOT_THRESHOLD = float(os.getenv("FLUX_EAGER_EOT_THRESHOLD", "0.5"))
 FLUX_EOT_TIMEOUT_MS = int(os.getenv("FLUX_EOT_TIMEOUT_MS", "5000"))
+# Language bias for flux-general-multi. Deepgram REJECTS language_hint on any
+# other model — including flux-general-en — with a 400, and a rejected socket
+# means the agent never hears a word for the whole call. So the hints are only
+# attached to the -multi model, and the supported set is checked up front:
+# Flux Multilingual covers exactly these 10 languages.
+FLUX_LANGUAGES = {"en", "es", "fr", "de", "hi", "ru", "pt", "ja", "it", "nl"}
+FLUX_LANGUAGE_HINTS = [h.strip().lower() for h in
+                       os.getenv("FLUX_LANGUAGE_HINTS", "hi,en").split(",")
+                       if h.strip()]
+
+
+def _flux_params() -> str:
+    """Flux's turn-taking query string, with every value forced into the range
+    the API accepts. Deepgram answers an out-of-range threshold with a 400 and
+    closes the socket — which surfaces as an agent that is simply deaf for the
+    entire call, so a bad number in .env must never reach the wire."""
+    eot = min(max(FLUX_EOT_THRESHOLD, 0.5), 0.9)
+    # eager MUST be <= eot (Deepgram rejects the pair otherwise), and cannot go
+    # below 0.3. Clamping to eot rather than erroring keeps a mistuned .env on
+    # the air — an eager trigger that never fires early just costs latency.
+    eager = min(max(FLUX_EAGER_EOT_THRESHOLD, 0.3), 0.9, eot)
+    timeout = min(max(FLUX_EOT_TIMEOUT_MS, 500), 60000)
+    for name, given, used in (("FLUX_EOT_THRESHOLD", FLUX_EOT_THRESHOLD, eot),
+                              ("FLUX_EAGER_EOT_THRESHOLD",
+                               FLUX_EAGER_EOT_THRESHOLD, eager),
+                              ("FLUX_EOT_TIMEOUT_MS",
+                               FLUX_EOT_TIMEOUT_MS, timeout)):
+        if given != used:
+            logger.warning(f"{name}={given} is outside Deepgram's accepted "
+                           f"range — using {used} instead")
+    params = (f"&eot_threshold={eot}&eager_eot_threshold={eager}"
+              f"&eot_timeout_ms={timeout}")
+    if DEEPGRAM_MODEL == "flux-general-multi":
+        good = [h for h in FLUX_LANGUAGE_HINTS if h.split("-")[0] in FLUX_LANGUAGES]
+        for bad in (h for h in FLUX_LANGUAGE_HINTS if h not in good):
+            logger.warning(f"FLUX_LANGUAGE_HINTS: '{bad}' is not one of "
+                           f"Flux Multilingual's languages — dropped")
+        params += "".join(f"&language_hint={h}" for h in good)
+    elif FLUX_LANGUAGE_HINTS:
+        logger.info(f"language_hint is only valid on flux-general-multi — "
+                    f"not sending hints to {DEEPGRAM_MODEL}")
+    return params
+
+
 # Domain words STT keeps mishearing on a noisy 8k line ('rate'→'date'/'eight',
 # 'karat'→'cast'). Keyterm prompting biases recognition toward them — works on
-# BOTH nova-3 (v1) and Flux (v2). Comma-separated; keep it under ~50 terms.
+# BOTH nova-3 (v1) and Flux (v2). Comma-separated here, but sent as a REPEATED
+# keyterm= parameter: Deepgram takes a comma-joined value as one literal
+# keyterm and silently boosts nothing. Limit is 500 tokens across all terms.
 DEEPGRAM_KEYTERMS = [t.strip() for t in os.getenv(
     "DEEPGRAM_KEYTERMS",
     "MRP,karat,RTGS,tunch,wastage,gross weight,net weight,diamond,jewelry,"
@@ -1293,10 +1336,7 @@ def _deepgram_ws_url() -> str:
         return (
             "wss://api.deepgram.com/v2/listen"
             f"?model={DEEPGRAM_MODEL}&encoding=mulaw&sample_rate=8000"
-            "&language_hint=hi&language_hint=en"
-            f"&eot_threshold={FLUX_EOT_THRESHOLD}"
-            f"&eager_eot_threshold={FLUX_EAGER_EOT_THRESHOLD}"
-            f"&eot_timeout_ms={FLUX_EOT_TIMEOUT_MS}"
+            + _flux_params()
             + keyterms
         )
     return (
@@ -1471,6 +1511,24 @@ class CallSession:
     def _handle_deepgram_message(self, message: str):
         data = json.loads(message)
         msg_type = data.get("type")
+        if msg_type in ("Error", "FatalError"):
+            # Deepgram reports a bad request as a message on the socket and
+            # then closes it. Without this branch the reconnect loop just
+            # retries forever and the ONLY symptom is an agent that never
+            # hears anything — with nothing in the log saying why. The usual
+            # causes are a rejected query parameter (an out-of-range Flux
+            # threshold, language_hint on a non-multi model) or a bad key.
+            logger.error(f"Deepgram rejected the stream — "
+                         f"{data.get('code', 'no code')}: "
+                         f"{data.get('description') or data.get('message') or data}"
+                         f" | url={DEEPGRAM_WS_URL}")
+            return
+        if msg_type in ("Connected", "Metadata", "ConfigureSuccess"):
+            logger.debug(f"[Deepgram {msg_type}] {data.get('request_id', '')}")
+            return
+        if msg_type == "ConfigureFailure":
+            logger.warning(f"Deepgram rejected a Configure message: {data}")
+            return
         if msg_type == "TurnInfo":
             # ── Flux (v2/listen) path ────────────────────────────────────────
             # One TurnInfo stream replaces Results/interims/SpeechStarted/
@@ -1481,6 +1539,12 @@ class CallSession:
             confs = [w.get("confidence") for w in words
                      if isinstance(w, dict) and w.get("confidence") is not None]
             confidence = (sum(confs) / len(confs)) if confs else None
+            # How sure Flux is that the TURN ended — a different question from
+            # how sure it is of the words, and only present on EndOfTurn-ish
+            # events. Logged (not gated on) because eot_threshold has already
+            # applied it server-side; it is what tells you whether a wrongly
+            # cut turn was a borderline call or a genuine misfire.
+            eot_conf = data.get("end_of_turn_confidence")
 
             # Barge-in evaluation: StartOfTurn is Deepgram's recommended
             # trigger (semantic, never noise), Updates keep it honest while
@@ -1505,7 +1569,9 @@ class CallSession:
             if event == "EndOfTurn" and transcript:
                 logger.info(f"[Flux EndOfTurn] {transcript}"
                             + (f" (conf={confidence:.2f})"
-                               if confidence is not None else ""))
+                               if confidence is not None else "")
+                            + (f" (eot={eot_conf:.2f})"
+                               if isinstance(eot_conf, (int, float)) else ""))
                 # APPEND, don't replace: if a previous EndOfTurn's reply was
                 # held/cancelled because the caller kept talking, that text is
                 # still in the buffer and the two parts are ONE question.
@@ -1619,6 +1685,15 @@ class CallSession:
                 logger.info("SpeechStarted → instant barge-in")
                 self._barge_in()
         elif msg_type == "UtteranceEnd":
+            # last_word_end == -1 means the result was ALREADY finalized before
+            # the utterance_end_ms gap elapsed — Deepgram documents this as a
+            # stale duplicate to ignore. Acting on it was a quiet latency tax:
+            # speech_final had just armed the fast TURN_CONFIRM_SECONDS timer,
+            # and this branch cancelled it and re-armed the much slower
+            # SILENCE_WAIT_SECONDS fallback, delaying every such reply.
+            if data.get("last_word_end") == -1:
+                logger.debug("[UtteranceEnd] stale (last_word_end=-1) — ignored")
+                return
             if self.transcript_buffer.strip():
                 if self.silence_timer and not self.silence_timer.done():
                     self.silence_timer.cancel()
@@ -1630,7 +1705,11 @@ class CallSession:
         forwarding caller audio, so without this the socket would drop."""
         try:
             while self.call_active:
-                await asyncio.sleep(5)
+                # 3s, not 5s: Deepgram drops an idle socket at 10s (NET-0001)
+                # and documents a 3-5s ping. At 5s a single slow event-loop
+                # turn while the agent is mid-reply can miss the window and
+                # kill STT for the rest of the call; 3s leaves real margin.
+                await asyncio.sleep(3)
                 # Flux (v2) has no documented KeepAlive message — and caller
                 # audio is forwarded continuously anyway, so the socket never
                 # idles. Sending v1's JSON frame could error the stream.
@@ -2336,6 +2415,15 @@ class CallSession:
             logger.warning("MongoDB client unavailable, conversation not saved")
         if self.deepgram_ws:
             try:
+                # CloseStream first: it tells Deepgram this is a deliberate
+                # end-of-call, so it flushes any buffered audio and closes
+                # cleanly instead of logging the call as an aborted stream.
+                # Both v1 and v2 accept it; a failure here is not worth caring
+                # about, since the close() below tears the socket down anyway.
+                try:
+                    await self.deepgram_ws.send(json.dumps({"type": "CloseStream"}))
+                except Exception:
+                    pass
                 await self.deepgram_ws.close()
             except:
                 pass
@@ -2428,15 +2516,16 @@ async def prewarm_tts_cache():
             logger.warning(f"Could not write prewarm manifest: {e}")
 
 async def prewarm_llm():
-    """Fire a tiny throwaway completion so the DeepSeek connection pool (DNS+TLS)
+    """Fire a tiny throwaway completion so the OpenAI connection pool (DNS+TLS)
     is hot. Without this the FIRST reply of a call pays connection setup on top of
     generation latency — which is exactly the 'slow at the start' problem."""
     try:
         stream = await llm_client.chat.completions.create(
             model=LLM_MODEL,
-            extra_body=LLM_EXTRA,
             messages=[{"role": "user", "content": "hi"}],
-            max_tokens=1,
+            # 16, not 1: a reasoning model can spend the whole budget before
+            # emitting a visible token, and a warm-up that 400s warms nothing.
+            **llm_params(16),
             stream=True,
         )
         async for _ in stream:

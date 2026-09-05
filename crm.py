@@ -35,6 +35,7 @@ import time
 import secrets
 import logging
 from datetime import datetime, timezone
+from urllib.parse import quote
 
 import aiohttp
 from fastapi import APIRouter, Request, UploadFile, File, Form
@@ -55,9 +56,16 @@ DEEPGRAM_API_KEY = os.getenv("DEEPGRAM_API_KEY")
 # clips go to a pre-recorded model instead (multilingual — the owner dictates in
 # Hinglish).
 CRM_STT_MODEL = os.getenv("CRM_STT_MODEL", "nova-3")
+# The SAME keyterms the live call biases toward. The owner dictates the very
+# vocabulary the agent will later have to recognise ('karat', 'tunch', 'MRP'),
+# so leaving them off here meant the bank could be typed up from a misheard
+# dictation — and every caller then hears the mistake read back as approved
+# fact. Repeated keyterm= params: a comma-joined value is taken as ONE literal
+# term and silently boosts nothing. smart_format already implies punctuate.
+_CRM_KEYTERMS = "".join(f"&keyterm={quote(t)}" for t in agent.DEEPGRAM_KEYTERMS)
 CRM_STT_URL = ("https://api.deepgram.com/v1/listen"
                f"?model={CRM_STT_MODEL}&language=multi&smart_format=true"
-               "&punctuate=true")
+               + _CRM_KEYTERMS)
 
 # Clean-up model: the SAME OpenAI model and key the call path uses (see
 # faq_router). Nothing here is latency-critical — it runs once, on a Save click,
@@ -691,10 +699,10 @@ ICONS_JS = ",".join(f'{k}: `{v}`' for k, v in ICONS.items())
 LOGIN_PAGE = f"""<!doctype html>
 <html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>CRM — sign in</title><style>{_CSS}{_CSS_LOGIN}
+<title>MRPscan CRM — sign in</title><style>{_CSS}{_CSS_LOGIN}
 </style></head><body>
   <div class="wrap">
-    <h1>Question bank CRM</h1>
+    <h1>MRPscan — question bank CRM</h1>
     <p class="sub">Record questions and answers for the voice agent.</p>
     <form method="post" action="/crm/login">
       <input type="password" name="password" placeholder="Password" autofocus required>
@@ -817,11 +825,11 @@ _CSS_APP = """
 APP_PAGE = f"""<!doctype html>
 <html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Question bank CRM</title><style>{_CSS}{_CSS_APP}
+<title>MRPscan CRM — question bank</title><style>{_CSS}{_CSS_APP}
 </style></head><body>
 <header>
   <div class="hdr-title">
-    <h1>Question bank CRM</h1>
+    <h1>MRPscan — question bank CRM</h1>
     <span class="msg" id="bankinfo"></span>
   </div>
   <div class="spacer"></div>

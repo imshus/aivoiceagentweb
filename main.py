@@ -1,4 +1,4 @@
-"""Browser voice interface for the Jewelry Tech Helpline agent.
+"""Browser voice interface for the MRPscan agent.
 
 This REPLACES the old telephony server. Instead of placing phone calls, it
 serves a single web page where you talk to the agent directly with your laptop
@@ -115,7 +115,7 @@ async def lifespan(app: FastAPI):
     await agent_shutdown()
 
 
-app = FastAPI(title="Jewelry Tech Helpline — Browser Agent", lifespan=lifespan)
+app = FastAPI(title="MRPscan — Browser Agent", lifespan=lifespan)
 app.include_router(crm_router)   # → /crm and /crm/unavailable (password-protected)
 
 
