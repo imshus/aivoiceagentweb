@@ -699,10 +699,10 @@ ICONS_JS = ",".join(f'{k}: `{v}`' for k, v in ICONS.items())
 LOGIN_PAGE = f"""<!doctype html>
 <html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>MRPscan CRM — sign in</title><style>{_CSS}{_CSS_LOGIN}
+<title>MRPscan Software CRM — sign in</title><style>{_CSS}{_CSS_LOGIN}
 </style></head><body>
   <div class="wrap">
-    <h1>MRPscan — question bank CRM</h1>
+    <h1>MRPscan Software — question bank CRM</h1>
     <p class="sub">Record questions and answers for the voice agent.</p>
     <form method="post" action="/crm/login">
       <input type="password" name="password" placeholder="Password" autofocus required>
@@ -825,11 +825,11 @@ _CSS_APP = """
 APP_PAGE = f"""<!doctype html>
 <html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>MRPscan CRM — question bank</title><style>{_CSS}{_CSS_APP}
+<title>MRPscan Software CRM — question bank</title><style>{_CSS}{_CSS_APP}
 </style></head><body>
 <header>
   <div class="hdr-title">
-    <h1>MRPscan — question bank CRM</h1>
+    <h1>MRPscan Software — question bank CRM</h1>
     <span class="msg" id="bankinfo"></span>
   </div>
   <div class="spacer"></div>

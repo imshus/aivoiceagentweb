@@ -1,4 +1,4 @@
-# MRPscan — AI Voice Agent
+# MRPscan Software — AI Voice Agent
 
 Hinglish voice agent for the jewelry tag-scanning / MRP software.
 **Browser mic → Deepgram STT → deterministic FAQ router (OpenAI GPT-5.6 Luna) → ElevenLabs TTS → MongoDB.**

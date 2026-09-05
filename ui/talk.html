@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>MRPscan — Talk to the Agent</title>
+<title>MRPscan Software — Talk to the Agent</title>
 <style>
   :root {
     --bg: #0f1220; --panel: #191d33; --accent: #f4c542; --accent2: #6c8cff;
@@ -45,12 +45,12 @@
 </style>
 </head>
 <body>
-  <h1>💎 MRPscan</h1>
+  <h1>💎 MRPscan Software</h1>
   <div class="sub">Talk to the AI assistant using your microphone</div>
 
   <div class="mic-wrap">
     <button id="mic" aria-label="Start call"></button>
-    <div id="status">Click the mic and allow microphone access</div>
+    <div id="status">Connecting…</div>
   </div>
 
 <script>
@@ -109,6 +109,10 @@ const MIN_RING_MS = 1200;
 let ringStartMs = 0;
 let pickupBuffer = [];   // agent audio held until the ring reaches MIN_RING_MS
 let pickupTimer = null;
+
+// True from the moment a call is being set up until it is live or has failed —
+// the auto-start and a stray click must not dial twice.
+let starting = false;
 
 // Playback scheduling (gapless μ-law @ 8 kHz)
 let nextPlayTime = 0;
@@ -276,19 +280,36 @@ function wsEndpoint() {
   return proto + "://" + location.host + "/ws";
 }
 
-async function start() {
+// `auto` marks the call the page starts by itself on load. It changes nothing
+// about the call — only what we do when the browser refuses, since on an
+// auto-start there is no gesture to blame and the user needs telling what to do.
+async function start(auto) {
+  if (starting || running) return;
+  starting = true;
   const wsUrl = wsEndpoint();
   if (!wsUrl) {
+    starting = false;
     setStatus("Open http://localhost:5000 (run: python web_app.py) — not the .html file itself.");
     return;
   }
 
   micBtn.disabled = true;
+  if (auto) setStatus("Connecting…");
 
-  // Create the audio context on the click gesture and start the "calling" ring
-  // immediately — before we even ask for the mic — so there is instant feedback.
+  // Create the audio context and start the "calling" ring immediately — before
+  // we even ask for the mic — so there is instant feedback.
   audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-  if (audioCtx.state === "suspended") await audioCtx.resume();
+  if (audioCtx.state === "suspended") { try { await audioCtx.resume(); } catch (e) {} }
+  // Autoplay policy: a context created without a user gesture stays suspended
+  // on most browsers, and every browser on iOS. The call would connect and the
+  // agent would talk into a muted output, so stop here and wait for any tap —
+  // the retry then runs inside a real gesture and everything unlocks.
+  if (audioCtx.state !== "running") {
+    starting = false;
+    teardown();
+    armGesture();
+    return;
+  }
   // iOS Safari only truly unlocks audio output once a real buffer has played
   // inside the tap gesture — resuming the context alone isn't enough, and
   // without this the ring/greeting can be swallowed on the first call.
@@ -307,8 +328,11 @@ async function start() {
       audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true, channelCount: 1 },
     });
   } catch (err) {
+    starting = false;
     teardown();
-    setStatus("Microphone blocked. Allow the mic (lock icon in the address bar), then click again.");
+    setStatus(auto
+      ? "Microphone blocked. Allow the mic (lock icon in the address bar), then reload."
+      : "Microphone blocked. Allow the mic (lock icon in the address bar), then click again.");
     return;
   }
 
@@ -318,6 +342,7 @@ async function start() {
 
   ws.onopen = () => {
     opened = true;
+    starting = false;
     running = true;
     // Build the capture graph: mic → script processor (routed to a muted gain
     // node so onaudioprocess fires without playing the mic back to the speaker).
@@ -353,6 +378,7 @@ async function start() {
     if (!opened) setStatus("Can't reach the agent at " + wsUrl + " — is web_app.py running on this port?");
   };
   ws.onclose = (ev) => {
+    starting = false;
     if (!opened) {
       // The socket never opened: wrong port/origin or the backend isn't running.
       teardown();
@@ -392,7 +418,46 @@ function stop() {
 }
 
 micBtn.innerHTML = ICON_CALL;   // start in the green "call" state
-micBtn.addEventListener("click", () => { running ? stop() : start(); });
+micBtn.addEventListener("click", () => { running ? stop() : start(false); });
+
+// ── auto-start ──────────────────────────────────────────────────────────────
+// Opening the page IS the call: it dials as soon as it loads, so there is
+// nothing to click. Two things can stop that, and both are handled rather than
+// left as silence — the browser's autoplay policy (no gesture yet, so audio
+// output is muted) and a microphone that has not been allowed. The mic button
+// stays exactly as it was, for hanging up and for calling again afterwards.
+function armGesture() {
+  setStatus("Tap anywhere to start the call");
+  const go = () => {
+    document.removeEventListener("pointerdown", go);
+    document.removeEventListener("keydown", go);
+    document.removeEventListener("touchend", go);
+    start(false);
+  };
+  document.addEventListener("pointerdown", go);
+  document.addEventListener("keydown", go);
+  document.addEventListener("touchend", go);
+}
+
+// A tab opened in the background gets no audio and often no mic; dial when it
+// is actually being looked at instead of failing before the user sees it.
+function autoStart() {
+  if (document.visibilityState === "hidden") {
+    document.addEventListener("visibilitychange", function once() {
+      if (document.visibilityState !== "hidden") {
+        document.removeEventListener("visibilitychange", once);
+        start(true);
+      }
+    });
+    return;
+  }
+  start(true);
+}
+
+if (document.readyState === "loading")
+  document.addEventListener("DOMContentLoaded", autoStart);
+else
+  autoStart();
 </script>
 </body>
 </html>

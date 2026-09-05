@@ -140,8 +140,8 @@ def llm_params(max_tokens: int, temperature: float = 0.0) -> dict:
 # warns loudly at startup if the two drift.
 CANONICAL_ANSWERS: dict[str, dict] = {
     "Q1": {
-        "q": "What is this Tag Scanning Software and what does it do?",
-        "a": "It is a jewelry software that scans data written on jewelry tags and automatically calculates the final price, eliminating the need for manual calculations.",
+        "q": "What is this MRPscan Software and what does it do?",
+        "a": "It is a MRPscan Software that scans data written on jewelry tags and automatically calculates the final price, eliminating the need for manual calculations.",
     },
     "Q2": {
         "q": "What is meant by \"manual calculation,\" ?",
@@ -968,7 +968,7 @@ Actions, in strict priority order:
    - greeting / line check → 'हेलो! बताइए, मैं कैसे help कर सकती हूँ?' or
      'हाँ, मैं सुन रही हूँ — बोलिए।'
    - thanks / ok / hmm → 'Most welcome!' or 'ठीक है।'
-   - identity → 'मैं MRPscan की AI assistant हूँ।'
+   - identity → 'मैं MRPscan Software की AI assistant हूँ।'
    NEVER put product facts, prices, or the MRP pitch in a CHAT reply.
 2. CLARIFY — the caller did not hear or did not understand the LAST reply and
    wants it again / more simply / its meaning: 'iska matlab kya hai?',

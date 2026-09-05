@@ -191,7 +191,7 @@ _COMMON_WORDS = {
     "वो", "में", "से", "और", "तो", "भी", "न", "पर", "एक", "आप", "मैं", "हम", "इस", "उस",
 }
 # Fixed phrases (never change) — cached & pre-warmed so TTS never delays them.
-GREETING_TEXT = "नमस्ते! MRPscan में आपका स्वागत है। बताइए, मैं कैसे help कर सकती हूँ?"
+GREETING_TEXT = "नमस्ते! MRPscan Software में आपका स्वागत है। बताइए, मैं कैसे help कर सकती हूँ?"
 # Kept SHORT on purpose: the caller hears this whole line before the line drops,
 # so a long goodbye = long "why isn't it hanging up?" delay. ~1.5s of speech.
 CLOSING_TEXT = "आपके समय के लिए धन्यवाद! Call अब end कर रही हूँ, आपका दिन शुभ रहे!"
@@ -538,7 +538,7 @@ ANSWERING_POLICY = (
     "rahe ho?' / 'awaaz aa rahi hai?' / thanks / 'ok' / 'theek hai' / 'aap AI ho?' "
     "gets ONE short warm Hinglish line back — greet, confirm you can hear, or "
     "acknowledge, then invite their question ('हेलो! बताइए, software के बारे में "
-    "क्या जानना चाहेंगे?'; identity → 'मैं MRPscan की AI assistant हूँ "
+    "क्या जानना चाहेंगे?'; identity → 'मैं MRPscan Software की AI assistant हूँ "
     "— बताइए, कैसे help करूँ?'). Never DECLINE, never ROUTE to team, and never "
     "pitch MRP in reply to a bare greeting or acknowledgement."
     "\nThe step-2 counter-question is REQUIRED when unsure and is NOT the banned 'filler "

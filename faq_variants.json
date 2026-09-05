@@ -1,14 +1,13 @@
 {
   "language": "hinglish",
-  "render_model": "gpt-4.1-mini",
-  "generated_at": "2026-08-02T05:57:33.257027+00:00",
+  "render_model": "gpt-5.6-luna",
+  "generated_at": "2026-09-05T09:27:33.910469+00:00",
   "entries": {
     "Q1": {
-      "hash": "04c4fc8e035dc8189172aa52b5d8f57cc50d83030d005db7459bc29e548fc8f0",
+      "hash": "98cc4c20d748aa7aba0d8b53139eee8a647e0a7d2142c99b92b08daf4596bcaa",
       "variants": [
-        "Tag Scanning Software एक jewelry software है जो आपके jewelry tags पर लिखा data scan करके final price automatically calculate कर देता है, जिससे manual calculation की जरूरत ही नहीं पड़ती।"
-      ],
-      "generated_at": "2026-08-02T06:08:36+00:00"
+        "MRPscan Software jewelry tags पर लिखा data scan करके final price automatically calculate करता है, इसलिए manual calculations की जरूरत नहीं पड़ती!"
+      ]
     },
     "Q2": {
       "hash": "878d4af0dced0c0500cfa472eb3d6b536271fd520e39a57e137a88a3e4e87e47",

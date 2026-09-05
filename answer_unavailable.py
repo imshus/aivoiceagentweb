@@ -1,4 +1,4 @@
-"""Unanswered-questions console for the MRPscan agent.
+"""Unanswered-questions console for the MRPscan Software agent.
 
 Every call the agent could not properly handle is flagged in agent.py and saved
 inside the SAME Mongo document as the transcript (see CallSession.cleanup):
@@ -401,7 +401,7 @@ async def health():
 PAGE = """<!doctype html>
 <html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>MRPscan — unanswered questions</title>
+<title>MRPscan Software — unanswered questions</title>
 <style>
   :root{--bg:#f6f7f9;--card:#ffffff;--line:#e4e7ec;--fg:#111827;--dim:#667085;
         --accent:#2563eb;--accent-soft:#eef4ff;--red:#d92d20;--red-soft:#fef3f2;
@@ -573,7 +573,7 @@ PAGE = """<!doctype html>
   }
 </style></head><body>
 <header>
-  <h1>MRPscan — unanswered questions</h1>
+  <h1>MRPscan Software — unanswered questions</h1>
   <div class="stats" id="stats"></div>
   <a class="nav" href="/crm"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M19 12H5"/><path d="m12 19-7-7 7-7"/></svg> Question bank CRM</a>
 </header>
