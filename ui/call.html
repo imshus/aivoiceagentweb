@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>MRPscan Software — Call a Customer</title>
+<style>
+  :root {
+    --bg: #0f1220; --panel: #191d33; --accent: #f4c542; --accent2: #6c8cff;
+    --user: #2a3350; --agent: #3a2f14; --text: #e8eaf2; --muted: #9aa0b4;
+    --ok: #34d17a; --bad: #ff6b6b; --line: #262b47;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+    background: radial-gradient(1200px 600px at 50% -10%, #20264a, #0f1220);
+    color: var(--text); min-height: 100vh; display: flex; flex-direction: column;
+    align-items: center; padding: 32px 16px;
+  }
+  .wrap { width: 100%; max-width: 560px; }
+  .top { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+  h1 { font-size: 20px; font-weight: 650; margin: 8px 0 2px; letter-spacing: .2px; }
+  .sub { color: var(--muted); font-size: 13px; margin-bottom: 20px; }
+  a.back { color: var(--muted); font-size: 13px; text-decoration: none; }
+  a.back:hover { color: var(--text); }
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 16px; padding: 18px; margin-bottom: 16px; }
+  form.dial { display: flex; gap: 10px; }
+  input[type=tel] {
+    flex: 1; min-width: 0; padding: 12px 14px; font-size: 17px; letter-spacing: .5px;
+    background: #10132a; color: var(--text); border: 1px solid var(--line); border-radius: 12px; outline: none;
+  }
+  input[type=tel]:focus { border-color: var(--accent2); }
+  button {
+    padding: 12px 18px; font-size: 15px; font-weight: 600; border: none; border-radius: 12px;
+    cursor: pointer; color: #0f1220; background: var(--ok); transition: transform .1s, opacity .2s;
+  }
+  button:hover { transform: translateY(-1px); }
+  button:disabled { opacity: .5; cursor: default; transform: none; }
+  button.danger { background: var(--bad); color: #fff; }
+  .hint { color: var(--muted); font-size: 12px; margin: 10px 2px 0; }
+  .err { color: var(--bad); font-size: 13px; margin: 10px 2px 0; min-height: 18px; }
+  .warn { background: #3a2f14; color: var(--accent); border-radius: 10px; padding: 10px 12px; font-size: 13px; margin-bottom: 14px; }
+  .head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 10px; }
+  .num { font-size: 18px; font-weight: 650; }
+  .badge { font-size: 12px; font-weight: 600; padding: 4px 10px; border-radius: 999px; background: var(--user); color: var(--muted); }
+  .badge.dialing { color: var(--accent); }
+  .badge.answered, .badge.live { color: var(--ok); animation: blink 1.4s infinite; }
+  .badge.ended { color: var(--muted); }
+  @keyframes blink { 50% { opacity: .55; } }
+  .meta { color: var(--muted); font-size: 12px; }
+  .log { margin-top: 12px; max-height: 320px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; }
+  .msg { padding: 9px 12px; border-radius: 12px; font-size: 14px; line-height: 1.4; max-width: 88%; }
+  .msg.user { background: var(--user); align-self: flex-start; }
+  .msg.agent { background: var(--agent); align-self: flex-end; }
+  .msg .who { display: block; font-size: 11px; color: var(--muted); margin-bottom: 2px; }
+  .empty { color: var(--muted); font-size: 13px; text-align: center; padding: 14px 0; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th, td { text-align: left; padding: 8px 6px; border-bottom: 1px solid var(--line); }
+  th { color: var(--muted); font-weight: 600; font-size: 12px; }
+  td.state { text-transform: capitalize; }
+  tr.click { cursor: pointer; }
+  tr.click:hover td { background: #1e2340; }
+  h2 { font-size: 14px; color: var(--muted); font-weight: 600; margin: 0 0 8px; }
+  [hidden] { display: none !important; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <div>
+      <h1>📞 Call a customer</h1>
+      <div class="sub">Outbound only. The agent greets them when they pick up and answers from the bank.</div>
+    </div>
+    <a class="back" href="/crm">← Console</a>
+  </div>
+
+  <div class="panel">
+    <div id="warn" class="warn" hidden></div>
+    <form class="dial" id="dial">
+      <input type="tel" id="number" placeholder="98765 43210" autocomplete="off" autofocus />
+      <button type="submit" id="callBtn">Call</button>
+    </form>
+    <div class="hint" id="fromHint"></div>
+    <div class="err" id="err"></div>
+  </div>
+
+  <div class="panel" id="current" hidden>
+    <div class="head">
+      <div>
+        <div class="num" id="curNum"></div>
+        <div class="meta" id="curMeta"></div>
+      </div>
+      <div style="display:flex; gap:10px; align-items:center">
+        <span class="badge" id="curState"></span>
+        <button class="danger" id="hangBtn" type="button">Hang up</button>
+      </div>
+    </div>
+    <div class="log" id="log"></div>
+  </div>
+
+  <div class="panel">
+    <h2>Recent calls</h2>
+    <table>
+      <thead><tr><th>Number</th><th>Status</th><th>Duration</th><th>Ended by</th></tr></thead>
+      <tbody id="recent"><tr><td colspan="4" class="empty">No calls yet</td></tr></tbody>
+    </table>
+  </div>
+</div>
+
+<script>
+"use strict";
+const API = '/crm/call/api';
+const $ = id => document.getElementById(id);
+let currentId = null;      // call the big panel follows
+let timer = null;
+
+async function api(path, body) {
+  const r = await fetch(API + path, body
+    ? { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }
+    : {});
+  if (r.status === 401) { location.href = '/crm'; throw new Error('signed out'); }
+  const data = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(data.error || ('HTTP ' + r.status));
+  return data;
+}
+
+const fmtDur = s => (s == null) ? '—' : `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+const fmtTime = t => t ? new Date(t * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
+const stateLabel = c => ({ dialing: 'Ringing…', answered: 'Connected', live: 'On call', ended: 'Ended' })[c.state] || c.state;
+const cause = c => c.state === 'ended' ? ((c.hangup_cause || '').replace(/_/g, ' ') || '—') : '';
+
+function renderCurrent(c) {
+  const panel = $('current');
+  if (!c) { panel.hidden = true; return; }
+  panel.hidden = false;
+  $('curNum').textContent = c.to;
+  $('curState').textContent = stateLabel(c);
+  $('curState').className = 'badge ' + c.state;
+  const bits = [];
+  if (c.placed_at) bits.push('placed ' + fmtTime(c.placed_at));
+  if (c.elapsed != null) bits.push((c.state === 'ended' ? 'lasted ' : '') + fmtDur(c.elapsed));
+  if (c.state === 'ended' && c.hangup_cause) bits.push(cause(c));
+  $('curMeta').textContent = bits.join(' · ');
+  $('hangBtn').hidden = c.state === 'ended';
+
+  const log = $('log');
+  const atBottom = log.scrollHeight - log.scrollTop - log.clientHeight < 30;
+  log.innerHTML = '';
+  if (!c.transcript.length) {
+    log.innerHTML = `<div class="empty">${c.state === 'ended' ? 'No transcript' : 'Waiting for the conversation…'}</div>`;
+  } else {
+    for (const m of c.transcript) {
+      if (m.type !== 'user' && m.type !== 'agent') continue;
+      const d = document.createElement('div');
+      d.className = 'msg ' + m.type;
+      d.innerHTML = `<span class="who">${m.type === 'user' ? 'Customer' : 'Agent'}</span>`;
+      d.appendChild(document.createTextNode(m.text || ''));
+      log.appendChild(d);
+    }
+  }
+  if (atBottom) log.scrollTop = log.scrollHeight;
+}
+
+function renderRecent(calls) {
+  const tb = $('recent');
+  tb.innerHTML = '';
+  if (!calls.length) { tb.innerHTML = '<tr><td colspan="4" class="empty">No calls yet</td></tr>'; return; }
+  for (const c of calls) {
+    const tr = document.createElement('tr');
+    tr.className = 'click';
+    tr.innerHTML = `<td>${c.to}</td><td class="state">${stateLabel(c)}</td><td>${fmtDur(c.duration ?? c.elapsed)}</td><td>${cause(c)}</td>`;
+    tr.onclick = () => { currentId = c.id; refresh(); };
+    tb.appendChild(tr);
+  }
+}
+
+async function refresh() {
+  let data;
+  try { data = await api('/calls'); } catch (e) { return; }
+  const warn = $('warn');
+  if (data.missing && data.missing.length) {
+    warn.hidden = false;
+    warn.textContent = 'Calling is not configured — set ' + data.missing.join(', ') + ' in .env and restart.';
+    $('callBtn').disabled = true;
+  } else {
+    warn.hidden = true;
+    $('callBtn').disabled = false;
+    $('fromHint').textContent = data.from ? `Calls show as ${data.from}` : '';
+  }
+  const calls = data.calls || [];
+  if (!currentId) {
+    const live = calls.find(c => c.state !== 'ended');
+    if (live) currentId = live.id;
+  }
+  renderCurrent(calls.find(c => c.id === currentId) || null);
+  renderRecent(calls);
+  const anyLive = calls.some(c => c.state !== 'ended');
+  clearTimeout(timer);
+  timer = setTimeout(refresh, anyLive ? 1200 : 5000);
+}
+
+$('dial').addEventListener('submit', async ev => {
+  ev.preventDefault();
+  $('err').textContent = '';
+  const number = $('number').value.trim();
+  if (!number) return;
+  $('callBtn').disabled = true;
+  try {
+    const { call } = await api('/dial', { number });
+    currentId = call.id;
+    $('number').value = '';
+    await refresh();
+  } catch (e) {
+    $('err').textContent = e.message;
+  } finally {
+    $('callBtn').disabled = false;
+  }
+});
+
+$('hangBtn').addEventListener('click', async () => {
+  if (!currentId) return;
+  $('hangBtn').disabled = true;
+  try { await api('/hangup', { id: currentId }); await refresh(); }
+  catch (e) { $('err').textContent = e.message; }
+  finally { $('hangBtn').disabled = false; }
+});
+
+refresh();
+</script>
+</body>
+</html>

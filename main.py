@@ -2,7 +2,9 @@
 
 This REPLACES the old telephony server. Instead of placing phone calls, it
 serves a single web page where you talk to the agent directly with your laptop
-microphone — no external telephony provider is involved.
+microphone. The one telephony feature is OUTBOUND: the console at /crm/call can
+dial a customer over Vobiz and hand the answered call to the same engine
+(vobiz_calls.py). Inbound calls are refused.
 
 Audio path (unchanged brain, new transport):
   browser mic ──μ-law 8kHz──▶ /ws ──▶ CallSession ──▶ Deepgram STT
@@ -40,6 +42,13 @@ from crm import router as crm_router
 from answer_unavailable import router as unavailable_router
 
 crm_router.include_router(unavailable_router)
+# Outbound phone calls over Vobiz (vobiz_calls.py). The dial page nests under
+# the same password at /crm/call; /answer, /hangup, /stream-status and the
+# /vobiz/ws media socket must be reachable by Vobiz at PUBLIC_URL. Inbound
+# calls are refused there by design.
+import vobiz_calls
+
+crm_router.include_router(vobiz_calls.console_router)
 
 load_dotenv()
 
@@ -112,11 +121,13 @@ async def lifespan(app: FastAPI):
     asyncio.create_task(prewarm_connections())
     yield
     logger.info("🛑 Shutting down")
+    await vobiz_calls.shutdown()     # drop any phone call still on the line
     await agent_shutdown()
 
 
 app = FastAPI(title="MRPscan Software — Browser Agent", lifespan=lifespan)
-app.include_router(crm_router)   # → /crm and /crm/unavailable (password-protected)
+app.include_router(crm_router)   # → /crm, /crm/unavailable, /crm/call (password-protected)
+app.include_router(vobiz_calls.public_router)   # → /answer /hangup /stream-status /vobiz/ws (Vobiz-facing)
 
 
 @app.get("/")

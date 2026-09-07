@@ -2,15 +2,17 @@
 
 Hinglish voice agent for the jewelry tag-scanning / MRP software.
 **Browser mic → Deepgram STT → deterministic FAQ router (OpenAI GPT-5.6 Luna) → ElevenLabs TTS → MongoDB.**
-No telephony — you talk to the agent directly from a web page using your laptop microphone.
+You talk to the agent from a web page using your laptop microphone, or have it **call a
+customer's phone** over Vobiz (outbound only — it never answers incoming calls).
 
-One server, three pages:
+One server, four pages:
 
 | URL | What it is |
 | --- | --- |
 | `/` | the caller-facing mic page — talk to the agent |
 | `/crm` | **password-protected console.** Record new questions and answers by voice, pre-warm their spoken wording, download the bank as Excel |
 | `/crm/unavailable` | inside that console: every turn the agent could not answer, could not speak, or answered with nothing |
+| `/crm/call` | inside that console: dial a customer's number and the agent takes the call. **Outbound only** |
 
 ## How a session flows
 
@@ -103,10 +105,47 @@ db.conversations.find({needs_attention: true}, {unresolved: 1}).sort({timestamp:
 
 Password: `CRM_PASSWORD` (default `admin@12321`), 12-hour cookie session.
 
+## Outbound calls (Vobiz)
+
+`/crm/call` (same password as the CRM) dials a customer's number through Vobiz and hands the
+answered call to the same `CallSession` engine the browser page uses — greeting, FAQ router,
+barge-in, transcript save, all unchanged. The page shows ringing / connected / ended state, the
+live transcript, a hang-up button and the last 20 calls.
+
+Flow: `POST /crm/call/api/dial` → Vobiz REST `Call/` → Vobiz hits `POST /answer` when the
+customer picks up → we return `<Stream bidirectional>` XML pointing at `wss://…/vobiz/ws` →
+μ-law frames flow both ways over that socket → `POST /hangup` closes the record.
+
+**Inbound is refused.** `/answer` only returns the Stream XML for a call this process placed
+(matched by RequestUUID / CallUUID / the number it dialled); anything else — including someone
+calling the Vobiz number — is answered with `<Hangup/>`.
+
+```
+# .env
+VOBIZ_AUTH_ID=…            # Vobiz account id
+VOBIZ_AUTH_TOKEN=…
+FROM_NUMBER=+91…           # your Vobiz number, E.164
+PUBLIC_URL=https://…       # this server as Vobiz reaches it (ngrok / Railway), no trailing slash
+DEFAULT_COUNTRY_CODE=91    # optional: prefix for bare 10-digit numbers
+OUTBOUND_GREETING_TEXT=…   # optional: the opening line when they pick up (default: "Hello sir, मैं MRP scan से प्रीति बोल रही हूं…")
+```
+
+The opening line is different from the browser/helpline greeting because *we* called *them*:
+by default the agent introduces herself as Preeti from MRP scan calling about their app
+inquiry and asks how she can help. Everything after that is the normal FAQ-bank flow.
+
+Vobiz must be able to reach `PUBLIC_URL` (`/answer`, `/hangup`, `/stream-status`, `/vobiz/ws`);
+locally that means `ngrok http 5000` and pasting the https URL into `PUBLIC_URL`. Hanging up from
+our side (the agent's HANGUP intent or the console button) sends stop/hangup on the stream and
+then `DELETE …/Call/<uuid>/`, because `keepCallAlive="true"` would otherwise leave the customer
+on a silent line.
+
 ## Files
 
-`main.py` — **run this one.** Serves the browser UI, the `/ws` audio WebSocket, `/crm` and `/crm/unavailable`.
+`main.py` — **run this one.** Serves the browser UI, the `/ws` audio WebSocket, `/crm`, `/crm/unavailable`, `/crm/call` and the Vobiz webhooks.
 `ui/talk.html` — the single-page mic interface (capture, μ-law codec, playback, transcript).
+`ui/call.html` — the outbound dial page (number, live status + transcript, hang up, recent calls).
+`vobiz_calls.py` — outbound calling over Vobiz: dial API, `/answer` + `/hangup` webhooks, `/vobiz/ws` media socket → `CallSession`. Refuses inbound.
 `agent.py` — the engine: STT, turn-taking, barge-in/echo, TTS streaming, attention flags, Mongo.
 `faq_router.py` — deterministic brain: `CANONICAL_ANSWERS` bank + classifier + renderer + bank writer.
 `crm.py` — the voice CRM: Deepgram → OpenAI → bank → pre-warm → Excel, behind the password.

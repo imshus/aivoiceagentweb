@@ -1360,6 +1360,10 @@ class CallSession:
         # ({"type": "user"|"agent", "text": ...}). Used by the browser interface
         # to show the live conversation; None (telephony) = no-op.
         self.on_event = None
+        # Opening line for this session. None = GREETING_TEXT (someone came to
+        # us); an outbound call (vobiz_calls.py) sets its own "I'm calling
+        # about your inquiry" line here before the stream starts.
+        self.greeting: str | None = None
         self.stream_id: str | None = None
         self.is_playing = False
         self.conversation_history = [{"role": "system", "content": AGENT_SYSTEM_PROMPT + LANGUAGE_DIRECTIVE + UNDERSTANDING_DIRECTIVE + SCOPE_DIRECTIVE + CLARIFY_DIRECTIVE + ANSWERING_POLICY}]
@@ -2348,7 +2352,7 @@ class CallSession:
                 # Connect STT here so the greeting begins right away and the
                 # caller's very first words are never missed.
                 await self.start_deepgram()  # no-op if already running
-                greeting = GREETING_TEXT
+                greeting = self.greeting or GREETING_TEXT
                 self.conversation_history.append({"role": "assistant", "content": greeting})
                 self.streaming_active = True
                 self._spoken_text = greeting

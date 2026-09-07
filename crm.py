@@ -834,6 +834,8 @@ APP_PAGE = f"""<!doctype html>
   </div>
   <div class="spacer"></div>
   <div class="hdr-acts">
+    <button class="ghost" onclick="location.href='/crm/call'">
+      <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1.9.4 1.8.7 2.6a2 2 0 0 1-.5 2.1L8 9.7a16 16 0 0 0 6 6l1.3-1.3a2 2 0 0 1 2.1-.4c.8.3 1.7.6 2.6.7a2 2 0 0 1 1.7 2z"/></svg> <span>Call<span class="wide-only"> a customer</span></span></button>
     <button class="ghost" onclick="location.href='/crm/unavailable'">
       {ICONS["alert"]} <span>Unanswered</span></button>
     <button class="ghost" onclick="warmAll()">
