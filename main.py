@@ -58,6 +58,9 @@ logger = logging.getLogger("web_app")
 # Railway (and most PaaS) inject the port to bind on as $PORT; fall back to
 # HTTP_PORT and then 5000 for local runs.
 HTTP_PORT = int(os.getenv("PORT", os.getenv("HTTP_PORT", "5000")))
+# Behind a reverse proxy (AWS + Caddy, see deploy/) bind to 127.0.0.1 so only
+# the proxy can reach the app; 0.0.0.0 for a direct local run.
+HTTP_HOST = os.getenv("HTTP_HOST", "0.0.0.0")
 _UI_PAGE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "ui", "talk.html")
 
 
@@ -200,8 +203,8 @@ async def talk(ws: WebSocket):
 
 
 def main():
-    logger.info(f"🚀 Starting browser voice server on http://localhost:{HTTP_PORT}")
-    uvicorn.run(app, host="0.0.0.0", port=HTTP_PORT, log_level="info")
+    logger.info(f"🚀 Starting browser voice server on http://{HTTP_HOST}:{HTTP_PORT}")
+    uvicorn.run(app, host=HTTP_HOST, port=HTTP_PORT, log_level="info")
 
 
 if __name__ == "__main__":

@@ -708,8 +708,9 @@ _tts_ws_pool: "asyncio.Queue[tuple]" = asyncio.Queue()
 # it every request 429s and the caller hears nothing. Bank answers play from
 # the disk cache and cost nothing here; only live text (CLARIFY / CHAT / new
 # wording) takes a slot. With many calls in progress, a reply that finds every
-# slot busy WAITS briefly for one instead of failing. 0 = no cap.
-ELEVENLABS_MAX_CONCURRENT = int(os.getenv("ELEVENLABS_MAX_CONCURRENT", "15"))
+# slot busy WAITS briefly for one instead of failing. 0 = no cap. Default 10 =
+# the Creator plan on flash_v2_5; raise it when the plan changes.
+ELEVENLABS_MAX_CONCURRENT = int(os.getenv("ELEVENLABS_MAX_CONCURRENT", "10"))
 _tts_slots: asyncio.Semaphore | None = (
     asyncio.Semaphore(ELEVENLABS_MAX_CONCURRENT) if ELEVENLABS_MAX_CONCURRENT > 0 else None)
 

@@ -125,7 +125,7 @@ calling the Vobiz number — is answered with `<Hangup/>`.
 VOBIZ_AUTH_ID=…            # Vobiz account id
 VOBIZ_AUTH_TOKEN=…
 FROM_NUMBER=+91…           # your Vobiz number, E.164
-PUBLIC_URL=https://…       # this server as Vobiz reaches it (ngrok / Railway), no trailing slash
+PUBLIC_URL=https://…       # the server's public https name (AWS: see "Run on AWS"), no trailing slash
 DEFAULT_COUNTRY_CODE=91    # optional: prefix for bare 10-digit numbers
 OUTBOUND_GREETING_TEXT=…   # optional: the opening line when they pick up (default: "Hello sir, मैं MRP scan से प्रीति बोल रही हूं…")
 ```
@@ -155,17 +155,18 @@ So the server itself is not the limit at 30. What has to be sized *outside* this
 | --- | --- | --- |
 | Vobiz account | concurrent channels ≥ 30, and the REST rate for placing a batch | dialing places 5 at a time |
 | Deepgram | streaming concurrency (Pay-as-you-go allows 50) | — |
-| ElevenLabs | per-plan concurrency; `flash_v2_5` gets double (Scale/Business 30). Bank answers play from `tts_cache/` and take no slot — only live text (CLARIFY / CHAT / new wording) does | `ELEVENLABS_MAX_CONCURRENT` (default 15): a reply over it waits for a slot instead of 429-ing; `TTS_POOL_SIZE` (default 2) pre-connected sockets |
+| ElevenLabs | per-plan concurrency; `flash_v2_5` gets double — **Creator = 10** (Pro 20, Scale/Business 30). Bank answers play from `tts_cache/` and take no slot — only live text (CLARIFY / CHAT / new wording) does, so 30 calls rarely need 10 at once | `ELEVENLABS_MAX_CONCURRENT` (default 10 = Creator): a reply over it waits for a slot instead of 429-ing; if `ElevenLabs TTS error 429` still shows in the logs, lower it to 8 (the two pooled sockets may count); `TTS_POOL_SIZE` (default 2) |
 | OpenAI | RPM / TPM on the Luna tier — each turn is one classifier + one render call | — |
-| Tunnel | free ngrok throttles connections; for real volume run on Railway / a VPS | `PUBLIC_URL` |
+| Instance | the engine is single-threaded: one modest EC2 instance (t3.small / t3.medium) in `ap-south-1` is enough, and a faster core helps where more vCPUs do not | `HTTP_HOST` / `PUBLIC_URL` |
 
 `MAX_CONCURRENT_CALLS` (default 30) caps calls in progress: `/crm/call` takes a list of numbers
 (one per line), places up to the free headroom, and returns every number it could not place
 with the reason. Run **one** uvicorn worker — call state, CRM sessions and the Vobiz webhooks
 all live in this process; scale by CPU per instance, not by workers.
 
-Vobiz must be able to reach `PUBLIC_URL` (`/answer`, `/hangup`, `/stream-status`, `/vobiz/ws`);
-locally that means `ngrok http 5000` and pasting the https URL into `PUBLIC_URL`. Hanging up from
+Vobiz must be able to reach `PUBLIC_URL` (`/answer`, `/hangup`, `/stream-status`, `/vobiz/ws`)
+over HTTPS: on AWS that is the Caddy name from "Run on AWS" below; for a laptop test,
+`ngrok http 5000` and paste the https URL into `PUBLIC_URL`. Hanging up from
 our side (the agent's HANGUP intent or the console button) sends stop/hangup on the stream and
 then `DELETE …/Call/<uuid>/`, because `keepCallAlive="true"` would otherwise leave the customer
 on a silent line.
@@ -199,6 +200,36 @@ Then open **http://localhost:5000** and click the mic. Use headphones so the age
 hear its own voice through your speakers. (A browser gives the mic to a page only on
 `localhost` or over HTTPS — that applies to the CRM's recording buttons too, so put it
 behind an HTTPS proxy for access from another device.)
+
+## Run on AWS (EC2)
+
+One small instance is enough — the engine is single-threaded and the load test above used a
+fraction of one core — so a `t3.small` / `t3.medium` in `ap-south-1` (Mumbai, nearest to Vobiz
+and your callers) is fine. Vobiz must reach the box over HTTPS, so it needs a name: point a DNS
+record at the Elastic IP, or use `<ip-with-dashes>.sslip.io` (e.g. `13-233-1-2.sslip.io`), which
+resolves to that IP with no DNS setup at all.
+
+1. **Security group**: inbound 22 (your IP), 80 and 443 (everyone — the Vobiz webhooks and the
+   media socket arrive here). Do **not** open 5000; the app binds to localhost behind Caddy.
+2. **On the instance** (Ubuntu 24.04):
+   ```bash
+   sudo apt update && sudo apt install -y python3-venv git
+   # Caddy: https://caddyserver.com/docs/install#debian-ubuntu-raspbian (apt repo)
+   git clone https://github.com/imshus/aivoiceagentweb.git && cd aivoiceagentweb
+   python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
+   nano .env      # keys, FROM_NUMBER, CRM_PASSWORD, and PUBLIC_URL=https://<your name>
+   ```
+3. **Caddy**: copy `deploy/Caddyfile` to `/etc/caddy/Caddyfile`, put your name in place of
+   `agent.example.com`, then `sudo systemctl reload caddy`. Caddy fetches and renews the
+   Let's Encrypt certificate itself and passes the WebSockets (`/ws`, `/vobiz/ws`) through.
+4. **Service**: copy `deploy/mrpscan-agent.service` to `/etc/systemd/system/`, fix the user
+   and paths if yours differ, then `sudo systemctl enable --now mrpscan-agent`.
+   Logs: `journalctl -u mrpscan-agent -f`. It restarts on crash and hangs up live calls on stop.
+5. **Vobiz**: Answer URL `https://<your name>/answer`, Hangup URL `https://<your name>/hangup`, both POST.
+
+Updating later: `git pull && sudo systemctl restart mrpscan-agent` — the pre-warmed clips in
+`tts_cache/` come with the pull, so nothing is re-synthesized on the server. One worker only
+(see Capacity); the browser pages and the CRM work over the same HTTPS name.
 
 ## Fixes applied to agent.py (marked `# FIX:` / `SILENT-REPLY FIX` in code)
 

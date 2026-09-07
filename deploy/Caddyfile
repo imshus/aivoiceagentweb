@@ -1,0 +1,18 @@
+# Caddy in front of the MRPscan agent on AWS (see README "Run on AWS").
+#
+# Replace agent.example.com with the name that points at this instance —
+# a DNS record on your Elastic IP, or <ip-with-dashes>.sslip.io. Caddy
+# obtains and renews the Let's Encrypt certificate on its own (ports 80 and
+# 443 must be open in the security group) and passes the WebSockets
+# (/ws for the browser page, /vobiz/ws for the phone media) straight through.
+#
+# Install: /etc/caddy/Caddyfile, then  sudo systemctl reload caddy
+
+agent.example.com {
+    reverse_proxy 127.0.0.1:5000
+    encode gzip
+
+    log {
+        output file /var/log/caddy/agent.log
+    }
+}
