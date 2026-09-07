@@ -62,7 +62,7 @@ DIAL_TIMEOUT_SECONDS = int(os.getenv("VOBIZ_DIAL_TIMEOUT_SECONDS", "90"))
 # README "Capacity" section before raising it. The opening line each call
 # starts with is agent.OUTBOUND_GREETING_TEXT (pre-warmed with the other
 # fixed lines).
-MAX_CONCURRENT_CALLS = int(os.getenv("MAX_CONCURRENT_CALLS", "30"))
+MAX_CONCURRENT_CALLS = int(os.getenv("MAX_CONCURRENT_CALLS", "10"))
 _DIAL_PARALLEL = 5          # simultaneous Vobiz REST placements within one batch
 _MAX_RECORDS = 200
 _TRANSCRIPT_KEEP = 80

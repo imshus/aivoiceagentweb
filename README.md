@@ -159,7 +159,7 @@ So the server itself is not the limit at 30. What has to be sized *outside* this
 | OpenAI | RPM / TPM on the Luna tier — each turn is one classifier + one render call | — |
 | Instance | the engine is single-threaded: one modest EC2 instance (t3.small / t3.medium) in `ap-south-1` is enough, and a faster core helps where more vCPUs do not | `HTTP_HOST` / `PUBLIC_URL` |
 
-`MAX_CONCURRENT_CALLS` (default 30) caps calls in progress: `/crm/call` takes a list of numbers
+`MAX_CONCURRENT_CALLS` (default 10, the owner's chosen ceiling; the engine was tested to 100) caps calls in progress: `/crm/call` takes a list of numbers
 (one per line), places up to the free headroom, and returns every number it could not place
 with the reason. Run **one** uvicorn worker — call state, CRM sessions and the Vobiz webhooks
 all live in this process; scale by CPU per instance, not by workers.
