@@ -31,6 +31,7 @@ import os
 import re
 import json
 import time
+import asyncio
 import logging
 from urllib.parse import quote
 
@@ -41,7 +42,7 @@ from pydantic import BaseModel
 from dotenv import load_dotenv
 
 import crm                      # password gate the dial page lives behind
-from agent import CallSession
+from agent import CallSession, OUTBOUND_GREETING_TEXT
 
 load_dotenv()
 logger = logging.getLogger("vobiz")
@@ -55,14 +56,15 @@ DEFAULT_COUNTRY_CODE = re.sub(r"\D", "", os.getenv("DEFAULT_COUNTRY_CODE", "91")
 # A placed call that Vobiz never reports as answered or hung up (webhook lost,
 # tunnel down) is closed on the board after this long.
 DIAL_TIMEOUT_SECONDS = int(os.getenv("VOBIZ_DIAL_TIMEOUT_SECONDS", "90"))
-# What the agent says the moment the customer picks up. We called THEM, so the
-# helpline greeting ("welcome to MRPscan") is wrong here; this one says who is
-# calling and why. Override with OUTBOUND_GREETING_TEXT in .env.
-OUTBOUND_GREETING_TEXT = os.getenv(
-    "OUTBOUND_GREETING_TEXT",
-    "Hello sir, मैं MRP scan से प्रीति बोल रही हूं। आपकी कुछ inquiry थी app से related, "
-    "बताएं मैं आपकी क्या help कर सकती हूं?")
-_MAX_RECORDS = 50
+# Ceiling on calls in progress (dialing / answered / live). The engine itself
+# is one CallSession per call with nothing shared, so this is really about the
+# outside limits — Vobiz channels, Deepgram + ElevenLabs concurrency — see the
+# README "Capacity" section before raising it. The opening line each call
+# starts with is agent.OUTBOUND_GREETING_TEXT (pre-warmed with the other
+# fixed lines).
+MAX_CONCURRENT_CALLS = int(os.getenv("MAX_CONCURRENT_CALLS", "30"))
+_DIAL_PARALLEL = 5          # simultaneous Vobiz REST placements within one batch
+_MAX_RECORDS = 200
 _TRANSCRIPT_KEEP = 80
 
 _PAGE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "ui", "call.html")
@@ -174,6 +176,10 @@ def _prune() -> None:
                        key=lambda r: r["placed_at"])
         for rec in ended[: len(_calls) - _MAX_RECORDS]:
             _calls.pop(rec["id"], None)
+
+
+def active_records() -> list[dict]:
+    return [r for r in _calls.values() if r["state"] != "ended"]
 
 
 def _find(*, request_uuid: str = "", call_uuid: str = "", to: str = "") -> dict | None:
@@ -449,7 +455,18 @@ console_router = APIRouter(prefix="/call", tags=["outbound-calls"])
 
 
 class DialBody(BaseModel):
-    number: str
+    number: str = ""            # one number — or several, separated by newlines / commas
+    numbers: list[str] = []
+
+
+def _split_numbers(body: DialBody) -> list[str]:
+    out, seen = [], set()
+    for item in list(body.numbers) + re.split(r"[\n,;]+", body.number or ""):
+        item = item.strip()
+        if item and item not in seen:
+            seen.add(item)
+            out.append(item)
+    return out
 
 
 class HangupBody(BaseModel):
@@ -472,26 +489,62 @@ async def api_calls(request: Request):
         return crm._denied()
     _prune()
     recs = sorted(_calls.values(), key=lambda r: r["placed_at"], reverse=True)
-    return {"calls": [_public(r) for r in recs[:20]],
+    return {"calls": [_public(r) for r in recs[:60]],
+            "active": len(active_records()),
+            "limit": MAX_CONCURRENT_CALLS,
             "missing": configured(),
             "from": FROM_NUMBER}
 
 
 @console_router.post("/api/dial")
 async def api_dial(body: DialBody, request: Request):
+    """Dial one number or a batch. Every number is either placed or comes back
+    in `skipped` with its reason; the batch never takes the calls in progress
+    past MAX_CONCURRENT_CALLS."""
     if not crm._authed(request):
         return crm._denied()
-    number = normalize_number(body.number)
-    if not number:
-        return JSONResponse({"error": "Enter a valid phone number, e.g. 98765 43210 or +91 98765 43210"},
+    wanted = _split_numbers(body)
+    if not wanted:
+        return JSONResponse({"error": "Enter at least one phone number, e.g. 98765 43210"},
                             status_code=400)
-    if _same_number(number, FROM_NUMBER):
-        return JSONResponse({"error": "That is the agent's own number"}, status_code=400)
-    try:
-        rec = await place_call(number)
-    except Exception as e:
-        return JSONResponse({"error": str(e)}, status_code=502)
-    return {"call": _public(rec)}
+    _prune()
+    placed: list[dict] = []
+    skipped: list[dict] = []
+    to_dial: list[str] = []
+    for raw in wanted:
+        number = normalize_number(raw)
+        if not number:
+            skipped.append({"number": raw, "reason": "not a valid phone number"})
+        elif _same_number(number, FROM_NUMBER):
+            skipped.append({"number": raw, "reason": "that is the agent's own number"})
+        elif (any(_same_number(r["to"], number) for r in active_records())
+              or any(_same_number(n, number) for n in to_dial)):
+            skipped.append({"number": number, "reason": "already on a call"})
+        else:
+            to_dial.append(number)
+    headroom = max(MAX_CONCURRENT_CALLS - len(active_records()), 0)
+    for number in to_dial[headroom:]:
+        skipped.append({"number": number,
+                        "reason": f"over the {MAX_CONCURRENT_CALLS}-call limit — retry when a line frees up"})
+    to_dial = to_dial[:headroom]
+
+    gate = asyncio.Semaphore(_DIAL_PARALLEL)
+
+    async def one(number: str):
+        async with gate:
+            try:
+                placed.append(_public(await place_call(number)))
+            except Exception as e:
+                skipped.append({"number": number, "reason": str(e)})
+
+    await asyncio.gather(*(one(n) for n in to_dial))
+    placed.sort(key=lambda c: c["placed_at"])
+    if not placed:
+        reason = skipped[0]["reason"] if skipped else "nothing to dial"
+        status = 502 if ("Vobiz" in reason or "configured" in reason) else 400
+        return JSONResponse({"error": reason, "placed": [], "skipped": skipped}, status_code=status)
+    return {"placed": placed, "skipped": skipped,
+            "active": len(active_records()), "limit": MAX_CONCURRENT_CALLS}
 
 
 @console_router.post("/api/hangup")
@@ -504,6 +557,15 @@ async def api_hangup(body: HangupBody, request: Request):
     if rec["state"] != "ended":
         await hangup_record(rec, "console")
     return {"call": _public(rec)}
+
+
+@console_router.post("/api/hangup_all")
+async def api_hangup_all(request: Request):
+    if not crm._authed(request):
+        return crm._denied()
+    recs = active_records()
+    await asyncio.gather(*(hangup_record(r, "console") for r in recs), return_exceptions=True)
+    return {"ended": len(recs), "active": len(active_records())}
 
 
 async def shutdown():

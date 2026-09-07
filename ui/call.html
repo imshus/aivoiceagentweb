@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>MRPscan Software — Call a Customer</title>
+<title>MRPscan Software — Call Customers</title>
 <style>
   :root {
     --bg: #0f1220; --panel: #191d33; --accent: #f4c542; --accent2: #6c8cff;
@@ -17,36 +17,54 @@
     color: var(--text); min-height: 100vh; display: flex; flex-direction: column;
     align-items: center; padding: 32px 16px;
   }
-  .wrap { width: 100%; max-width: 560px; }
+  .wrap { width: 100%; max-width: 760px; }
   .top { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
   h1 { font-size: 20px; font-weight: 650; margin: 8px 0 2px; letter-spacing: .2px; }
   .sub { color: var(--muted); font-size: 13px; margin-bottom: 20px; }
   a.back { color: var(--muted); font-size: 13px; text-decoration: none; }
   a.back:hover { color: var(--text); }
   .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 16px; padding: 18px; margin-bottom: 16px; }
-  form.dial { display: flex; gap: 10px; }
-  input[type=tel] {
-    flex: 1; min-width: 0; padding: 12px 14px; font-size: 17px; letter-spacing: .5px;
+  form.dial { display: flex; gap: 10px; align-items: stretch; }
+  textarea {
+    flex: 1; min-width: 0; padding: 12px 14px; font-size: 16px; letter-spacing: .4px; resize: vertical;
+    min-height: 74px; font-family: inherit; line-height: 1.4;
     background: #10132a; color: var(--text); border: 1px solid var(--line); border-radius: 12px; outline: none;
   }
-  input[type=tel]:focus { border-color: var(--accent2); }
+  textarea:focus { border-color: var(--accent2); }
+  .btns { display: flex; flex-direction: column; gap: 8px; }
   button {
     padding: 12px 18px; font-size: 15px; font-weight: 600; border: none; border-radius: 12px;
-    cursor: pointer; color: #0f1220; background: var(--ok); transition: transform .1s, opacity .2s;
+    cursor: pointer; color: #0f1220; background: var(--ok); transition: transform .1s, opacity .2s; white-space: nowrap;
   }
   button:hover { transform: translateY(-1px); }
   button:disabled { opacity: .5; cursor: default; transform: none; }
   button.danger { background: var(--bad); color: #fff; }
-  .hint { color: var(--muted); font-size: 12px; margin: 10px 2px 0; }
-  .err { color: var(--bad); font-size: 13px; margin: 10px 2px 0; min-height: 18px; }
+  button.ghost { background: var(--user); color: var(--text); }
+  .row { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-top: 10px; flex-wrap: wrap; }
+  .hint { color: var(--muted); font-size: 12px; }
+  .cap { font-size: 12px; color: var(--muted); }
+  .cap b { color: var(--text); }
+  .cap.full b { color: var(--bad); }
+  .err { color: var(--bad); font-size: 13px; margin: 8px 2px 0; min-height: 18px; white-space: pre-line; }
+  .info { color: var(--ok); font-size: 13px; margin: 8px 2px 0; }
   .warn { background: #3a2f14; color: var(--accent); border-radius: 10px; padding: 10px 12px; font-size: 13px; margin-bottom: 14px; }
-  .head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 10px; }
-  .num { font-size: 18px; font-weight: 650; }
-  .badge { font-size: 12px; font-weight: 600; padding: 4px 10px; border-radius: 999px; background: var(--user); color: var(--muted); }
+  h2 { font-size: 14px; color: var(--muted); font-weight: 600; margin: 0 0 10px; display: flex; justify-content: space-between; align-items: center; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 8px; }
+  .card {
+    background: #10132a; border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; cursor: pointer;
+    display: flex; flex-direction: column; gap: 4px; transition: border-color .15s;
+  }
+  .card:hover { border-color: var(--accent2); }
+  .card.sel { border-color: var(--accent); }
+  .card .n { font-weight: 650; font-size: 14px; }
+  .card .m { font-size: 12px; color: var(--muted); display: flex; justify-content: space-between; }
+  .badge { font-size: 11px; font-weight: 600; padding: 3px 9px; border-radius: 999px; background: var(--user); color: var(--muted); }
   .badge.dialing { color: var(--accent); }
   .badge.answered, .badge.live { color: var(--ok); animation: blink 1.4s infinite; }
   .badge.ended { color: var(--muted); }
   @keyframes blink { 50% { opacity: .55; } }
+  .head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 10px; }
+  .num { font-size: 18px; font-weight: 650; }
   .meta { color: var(--muted); font-size: 12px; }
   .log { margin-top: 12px; max-height: 320px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; }
   .msg { padding: 9px 12px; border-radius: 12px; font-size: 14px; line-height: 1.4; max-width: 88%; }
@@ -57,10 +75,8 @@
   table { width: 100%; border-collapse: collapse; font-size: 13px; }
   th, td { text-align: left; padding: 8px 6px; border-bottom: 1px solid var(--line); }
   th { color: var(--muted); font-weight: 600; font-size: 12px; }
-  td.state { text-transform: capitalize; }
   tr.click { cursor: pointer; }
   tr.click:hover td { background: #1e2340; }
-  h2 { font-size: 14px; color: var(--muted); font-weight: 600; margin: 0 0 8px; }
   [hidden] { display: none !important; }
 </style>
 </head>
@@ -68,8 +84,8 @@
 <div class="wrap">
   <div class="top">
     <div>
-      <h1>📞 Call a customer</h1>
-      <div class="sub">Outbound only. The agent greets them when they pick up and answers from the bank.</div>
+      <h1>📞 Call customers</h1>
+      <div class="sub">Outbound only. Paste one number per line — each one gets its own line with the agent.</div>
     </div>
     <a class="back" href="/crm">← Console</a>
   </div>
@@ -77,11 +93,23 @@
   <div class="panel">
     <div id="warn" class="warn" hidden></div>
     <form class="dial" id="dial">
-      <input type="tel" id="number" placeholder="98765 43210" autocomplete="off" autofocus />
-      <button type="submit" id="callBtn">Call</button>
+      <textarea id="numbers" placeholder="98765 43210&#10;98765 43211&#10;+91 98765 43212" autocomplete="off" autofocus></textarea>
+      <div class="btns">
+        <button type="submit" id="callBtn">Call</button>
+        <button type="button" class="danger" id="hangAllBtn" hidden>Hang up all</button>
+      </div>
     </form>
-    <div class="hint" id="fromHint"></div>
+    <div class="row">
+      <div class="hint" id="fromHint"></div>
+      <div class="cap" id="cap"></div>
+    </div>
+    <div class="info" id="info" hidden></div>
     <div class="err" id="err"></div>
+  </div>
+
+  <div class="panel" id="livePanel" hidden>
+    <h2><span>Live calls</span><span class="cap" id="liveCount"></span></h2>
+    <div class="grid" id="live"></div>
   </div>
 
   <div class="panel" id="current" hidden>
@@ -111,7 +139,7 @@
 "use strict";
 const API = '/crm/call/api';
 const $ = id => document.getElementById(id);
-let currentId = null;      // call the big panel follows
+let currentId = null;      // call the transcript panel follows
 let timer = null;
 
 async function api(path, body) {
@@ -120,7 +148,10 @@ async function api(path, body) {
     : {});
   if (r.status === 401) { location.href = '/crm'; throw new Error('signed out'); }
   const data = await r.json().catch(() => ({}));
-  if (!r.ok) throw new Error(data.error || ('HTTP ' + r.status));
+  if (!r.ok) {
+    const lines = (data.skipped || []).map(s => `${s.number}: ${s.reason}`);
+    throw new Error(lines.length ? lines.join('\n') : (data.error || ('HTTP ' + r.status)));
+  }
   return data;
 }
 
@@ -128,6 +159,22 @@ const fmtDur = s => (s == null) ? '—' : `${Math.floor(s / 60)}:${String(s % 60
 const fmtTime = t => t ? new Date(t * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
 const stateLabel = c => ({ dialing: 'Ringing…', answered: 'Connected', live: 'On call', ended: 'Ended' })[c.state] || c.state;
 const cause = c => c.state === 'ended' ? ((c.hangup_cause || '').replace(/_/g, ' ') || '—') : '';
+
+function renderLive(live) {
+  $('livePanel').hidden = live.length === 0;
+  $('hangAllBtn').hidden = live.length === 0;
+  $('liveCount').textContent = live.length ? `${live.length} in progress` : '';
+  const grid = $('live');
+  grid.innerHTML = '';
+  for (const c of live) {
+    const d = document.createElement('div');
+    d.className = 'card' + (c.id === currentId ? ' sel' : '');
+    d.innerHTML = `<div class="n"></div><div class="m"><span class="badge ${c.state}">${stateLabel(c)}</span><span>${c.elapsed != null ? fmtDur(c.elapsed) : fmtTime(c.placed_at)}</span></div>`;
+    d.querySelector('.n').textContent = c.to;
+    d.onclick = () => { currentId = c.id; refresh(); };
+    grid.appendChild(d);
+  }
+}
 
 function renderCurrent(c) {
   const panel = $('current');
@@ -168,7 +215,8 @@ function renderRecent(calls) {
   for (const c of calls) {
     const tr = document.createElement('tr');
     tr.className = 'click';
-    tr.innerHTML = `<td>${c.to}</td><td class="state">${stateLabel(c)}</td><td>${fmtDur(c.duration ?? c.elapsed)}</td><td>${cause(c)}</td>`;
+    tr.innerHTML = `<td></td><td>${stateLabel(c)}</td><td>${fmtDur(c.duration ?? c.elapsed)}</td><td>${cause(c)}</td>`;
+    tr.firstChild.textContent = c.to;
     tr.onclick = () => { currentId = c.id; refresh(); };
     tb.appendChild(tr);
   }
@@ -188,27 +236,38 @@ async function refresh() {
     $('fromHint').textContent = data.from ? `Calls show as ${data.from}` : '';
   }
   const calls = data.calls || [];
-  if (!currentId) {
-    const live = calls.find(c => c.state !== 'ended');
-    if (live) currentId = live.id;
-  }
+  const live = calls.filter(c => c.state !== 'ended');
+  const cap = $('cap');
+  cap.innerHTML = `<b>${data.active}</b> of ${data.limit} lines in use`;
+  cap.className = 'cap' + (data.active >= data.limit ? ' full' : '');
+  if (!currentId || !calls.some(c => c.id === currentId)) currentId = live.length ? live[0].id : null;
+  renderLive(live);
   renderCurrent(calls.find(c => c.id === currentId) || null);
-  renderRecent(calls);
-  const anyLive = calls.some(c => c.state !== 'ended');
+  renderRecent(calls.filter(c => c.state === 'ended'));
   clearTimeout(timer);
-  timer = setTimeout(refresh, anyLive ? 1200 : 5000);
+  timer = setTimeout(refresh, live.length ? 1200 : 5000);
 }
 
 $('dial').addEventListener('submit', async ev => {
   ev.preventDefault();
   $('err').textContent = '';
-  const number = $('number').value.trim();
+  $('info').hidden = true;
+  const number = $('numbers').value.trim();
   if (!number) return;
   $('callBtn').disabled = true;
   try {
-    const { call } = await api('/dial', { number });
-    currentId = call.id;
-    $('number').value = '';
+    const res = await api('/dial', { number });
+    if (res.placed.length) {
+      currentId = res.placed[0].id;
+      $('numbers').value = '';
+      $('info').hidden = false;
+      $('info').textContent = `Dialing ${res.placed.length} number${res.placed.length > 1 ? 's' : ''} · ${res.active} of ${res.limit} lines in use`;
+    }
+    if (res.skipped.length) {
+      $('err').textContent = res.skipped.map(s => `${s.number}: ${s.reason}`).join('\n');
+      // keep the ones we could not place in the box so they can be retried
+      $('numbers').value = res.skipped.filter(s => /limit/.test(s.reason)).map(s => s.number).join('\n');
+    }
     await refresh();
   } catch (e) {
     $('err').textContent = e.message;
@@ -223,6 +282,14 @@ $('hangBtn').addEventListener('click', async () => {
   try { await api('/hangup', { id: currentId }); await refresh(); }
   catch (e) { $('err').textContent = e.message; }
   finally { $('hangBtn').disabled = false; }
+});
+
+$('hangAllBtn').addEventListener('click', async () => {
+  if (!confirm('Hang up every call in progress?')) return;
+  $('hangAllBtn').disabled = true;
+  try { await api('/hangup_all', {}); await refresh(); }
+  catch (e) { $('err').textContent = e.message; }
+  finally { $('hangAllBtn').disabled = false; }
 });
 
 refresh();

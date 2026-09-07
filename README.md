@@ -132,7 +132,37 @@ OUTBOUND_GREETING_TEXT=…   # optional: the opening line when they pick up (def
 
 The opening line is different from the browser/helpline greeting because *we* called *them*:
 by default the agent introduces herself as Preeti from MRP scan calling about their app
-inquiry and asks how she can help. Everything after that is the normal FAQ-bank flow.
+inquiry and asks how she can help. Everything after that is the normal FAQ-bank flow. The
+line is pre-warmed with the other fixed lines (`python gen_variants.py`), so the first word
+plays from `tts_cache/` the moment the customer picks up.
+
+### Capacity — 30 calls at once
+
+One process, one asyncio loop, one `CallSession` per call. Nothing is shared between calls
+except connection pools, so concurrency is a sizing question, not a code-path one. Load test
+on this laptop (real engine, real media-socket path, paid services stubbed; every line sending
+50 inbound frames/s and receiving two full greetings):
+
+| Lines | First audio after pick-up | Outbound pacing p99 | Event-loop lag avg / max |
+| --- | --- | --- | --- |
+| 30 | 1 ms | 412 ms (nominal 400) | 8.9 / 14 ms |
+| 60 | 1 ms | 409 ms | 5.6 / 14 ms |
+| 100 | 1 ms | 473 ms | 4.2 / 41 ms |
+
+So the server itself is not the limit at 30. What has to be sized *outside* this repo:
+
+| Resource | Limit to check | Knob here |
+| --- | --- | --- |
+| Vobiz account | concurrent channels ≥ 30, and the REST rate for placing a batch | dialing places 5 at a time |
+| Deepgram | streaming concurrency (Pay-as-you-go allows 50) | — |
+| ElevenLabs | per-plan concurrency; `flash_v2_5` gets double (Scale/Business 30). Bank answers play from `tts_cache/` and take no slot — only live text (CLARIFY / CHAT / new wording) does | `ELEVENLABS_MAX_CONCURRENT` (default 15): a reply over it waits for a slot instead of 429-ing; `TTS_POOL_SIZE` (default 2) pre-connected sockets |
+| OpenAI | RPM / TPM on the Luna tier — each turn is one classifier + one render call | — |
+| Tunnel | free ngrok throttles connections; for real volume run on Railway / a VPS | `PUBLIC_URL` |
+
+`MAX_CONCURRENT_CALLS` (default 30) caps calls in progress: `/crm/call` takes a list of numbers
+(one per line), places up to the free headroom, and returns every number it could not place
+with the reason. Run **one** uvicorn worker — call state, CRM sessions and the Vobiz webhooks
+all live in this process; scale by CPU per instance, not by workers.
 
 Vobiz must be able to reach `PUBLIC_URL` (`/answer`, `/hangup`, `/stream-status`, `/vobiz/ws`);
 locally that means `ngrok http 5000` and pasting the https URL into `PUBLIC_URL`. Hanging up from

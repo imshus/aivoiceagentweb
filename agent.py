@@ -192,6 +192,13 @@ _COMMON_WORDS = {
 }
 # Fixed phrases (never change) — cached & pre-warmed so TTS never delays them.
 GREETING_TEXT = "नमस्ते! MRPscan Software में आपका स्वागत है। बताइए, मैं कैसे help कर सकती हूँ?"
+# Opening line for OUTBOUND calls (vobiz_calls.py): we called them, so it says
+# who is calling and why instead of welcoming them. Pre-warmed like every other
+# fixed line. Override with OUTBOUND_GREETING_TEXT in .env.
+OUTBOUND_GREETING_TEXT = os.getenv(
+    "OUTBOUND_GREETING_TEXT",
+    "Hello sir, मैं MRP scan से प्रीति बोल रही हूं। आपकी कुछ inquiry थी app से related, "
+    "बताएं मैं आपकी क्या help कर सकती हूं?")
 # Kept SHORT on purpose: the caller hears this whole line before the line drops,
 # so a long goodbye = long "why isn't it hanging up?" delay. ~1.5s of speech.
 CLOSING_TEXT = "आपके समय के लिए धन्यवाद! Call अब end कर रही हूँ, आपका दिन शुभ रहे!"
@@ -691,9 +698,32 @@ async def _get_tts_session() -> aiohttp.ClientSession:
 # ElevenLabs the instant the LLM produces them, with zero connect cost.
 # Sockets older than _TTS_WS_MAX_AGE are discarded (ElevenLabs closes idle
 # input-streams at ~60s; we stay safely under that).
-_TTS_POOL_SIZE = 2
+_TTS_POOL_SIZE = int(os.getenv("TTS_POOL_SIZE", "2"))
 _TTS_WS_MAX_AGE = 45.0
 _tts_ws_pool: "asyncio.Queue[tuple]" = asyncio.Queue()
+
+# ── Live-synthesis concurrency cap ───────────────────────────────────────────
+# ElevenLabs enforces a per-plan concurrency limit (flash_v2_5 gets double:
+# Starter 6 / Creator 10 / Pro 20 / Scale & Business 30 — check yours). Past
+# it every request 429s and the caller hears nothing. Bank answers play from
+# the disk cache and cost nothing here; only live text (CLARIFY / CHAT / new
+# wording) takes a slot. With many calls in progress, a reply that finds every
+# slot busy WAITS briefly for one instead of failing. 0 = no cap.
+ELEVENLABS_MAX_CONCURRENT = int(os.getenv("ELEVENLABS_MAX_CONCURRENT", "15"))
+_tts_slots: asyncio.Semaphore | None = (
+    asyncio.Semaphore(ELEVENLABS_MAX_CONCURRENT) if ELEVENLABS_MAX_CONCURRENT > 0 else None)
+
+async def _tts_slot_acquire():
+    if _tts_slots is None:
+        return
+    if _tts_slots.locked():
+        logger.warning(f"All {ELEVENLABS_MAX_CONCURRENT} ElevenLabs slots busy — "
+                       "reply waits for a free one")
+    await _tts_slots.acquire()
+
+def _tts_slot_release():
+    if _tts_slots is not None:
+        _tts_slots.release()
 
 async def _open_tts_ws():
     url = ELEVENLABS_WS_URL.format(voice_id=ELEVENLABS_VOICE_ID, model=ELEVENLABS_MODEL)
@@ -1027,6 +1057,7 @@ async def stream_tts_audio(
     if previous_text:
         body["previous_text"] = _fix_pronunciation(previous_text)[-400:]
     url = ELEVENLABS_TTS_URL.format(voice_id=ELEVENLABS_VOICE_ID)
+    await _tts_slot_acquire()
     try:
         session = await _get_tts_session()
         async with session.post(url, headers=headers, json=body) as resp:
@@ -1047,6 +1078,8 @@ async def stream_tts_audio(
     except Exception as e:
         logger.error(f"Streaming TTS error: {e}")
         return
+    finally:
+        _tts_slot_release()
 
 async def stream_tts_ws(
     token_iter: AsyncGenerator[str, None],
@@ -1062,7 +1095,12 @@ async def stream_tts_ws(
     # is still untouched, so the caller can cleanly retry over HTTP.
     # FIX (latency): sockets come from the pre-connected pool — config frame is
     # already sent, so feeding can begin immediately with zero connect cost.
-    ws = await _pooled_tts_ws()
+    await _tts_slot_acquire()
+    try:
+        ws = await _pooled_tts_ws()
+    except BaseException:
+        _tts_slot_release()
+        raise
     feeder = None
     try:
 
@@ -1103,6 +1141,7 @@ async def stream_tts_ws(
             if data.get("isFinal"):
                 break
     finally:
+        _tts_slot_release()
         if feeder and not feeder.done():
             feeder.cancel()
         try:
@@ -2455,7 +2494,7 @@ async def prewarm_tts_cache():
     the fingerprint stops matching (faq_variants.json regenerated, a fixed
     line edited, or the voice/speed changed) exactly ONE fresh pass runs — it
     synthesizes only what is actually new — and the manifest is rewritten."""
-    texts = list(dict.fromkeys((GREETING_TEXT, CLOSING_TEXT, REPEAT_LINE,
+    texts = list(dict.fromkeys((GREETING_TEXT, OUTBOUND_GREETING_TEXT, CLOSING_TEXT, REPEAT_LINE,
                                 DECLINE_LINE, ASK_FALLBACK, CHAT_FALLBACK,
                                 *SMALLTALK_RESPONSES.values(),
                                 *iter_variant_texts())))
