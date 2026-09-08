@@ -166,6 +166,79 @@ const peer = c => c.peer || c.to;
 const stateLabel = c => ({ dialing: 'Ringing…', answered: 'Connected', live: 'On call', ended: 'Ended' })[c.state] || c.state;
 const cause = c => c.state === 'ended' ? ((c.hangup_cause || '').replace(/_/g, ' ') || '—') : '';
 
+// ── Ringback ("calling…") tone ──────────────────────────────────────────────
+// Placing a call used to be silent here — the board said "Ringing…" in text
+// while the customer's phone rang, with nothing to hear. Ring for real, using
+// the same 440+480 Hz tone and cadence as the browser talk page, for as long as
+// a call we placed is still ringing on the other end. Browsers only let audio
+// out after a gesture, so the context is unlocked on the click that dials.
+let audioCtx = null, ringOscs = null, ringGain = null, ringTimer = null, ringing = false;
+
+function unlockAudio() {
+  if (audioCtx) {
+    if (audioCtx.state === 'suspended') audioCtx.resume().catch(() => {});
+    return;
+  }
+  try {
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    // iOS Safari only truly unlocks output once a buffer has played in-gesture.
+    const s = audioCtx.createBufferSource();
+    s.buffer = audioCtx.createBuffer(1, 1, audioCtx.sampleRate || 8000);
+    s.connect(audioCtx.destination);
+    s.start(0);
+  } catch (e) { audioCtx = null; }
+}
+
+function startRingback() {
+  if (ringing || !audioCtx || audioCtx.state !== 'running') return;
+  ringing = true;
+  ringGain = audioCtx.createGain();
+  ringGain.gain.value = 0.0001;
+  ringGain.connect(audioCtx.destination);
+  ringOscs = [440, 480].map(f => {
+    const o = audioCtx.createOscillator();
+    o.type = 'sine';
+    o.frequency.value = f;
+    o.connect(ringGain);
+    o.start();
+    return o;
+  });
+  // Gate the gain on/off so it rings for 3.5 s then rests for 2.5 s, repeating.
+  const ring = () => {
+    if (!ringing || !audioCtx) return;
+    // A backgrounded tab suspends the context; nudge it back.
+    if (audioCtx.state === 'suspended') audioCtx.resume().catch(() => {});
+    try {
+      const t = audioCtx.currentTime;
+      ringGain.gain.cancelScheduledValues(t);
+      ringGain.gain.setValueAtTime(0.0001, t);
+      ringGain.gain.exponentialRampToValueAtTime(0.12, t + 0.04);   // ring on
+      ringGain.gain.setValueAtTime(0.12, t + 3.5);
+      ringGain.gain.exponentialRampToValueAtTime(0.0001, t + 3.54); // ring off
+    } catch (e) {}
+    ringTimer = setTimeout(ring, 6000);
+  };
+  ring();
+}
+
+function stopRingback() {
+  if (!ringing) return;
+  ringing = false;
+  clearTimeout(ringTimer);
+  ringTimer = null;
+  try {
+    const t = audioCtx ? audioCtx.currentTime : 0;
+    if (ringGain) { ringGain.gain.cancelScheduledValues(t); ringGain.gain.setValueAtTime(0.0001, t); }
+  } catch (e) {}
+  if (ringOscs) ringOscs.forEach(o => { try { o.stop(); } catch (e) {} });
+  ringOscs = null;
+  ringGain = null;
+}
+
+// An inbound call is already answered by the time we know about it, so only a
+// call we placed can be ringing.
+const setRinging = on => on ? startRingback() : stopRingback();
+
 function renderLive(live) {
   $('livePanel').hidden = live.length === 0;
   $('hangAllBtn').hidden = live.length === 0;
@@ -246,6 +319,7 @@ async function refresh() {
   }
   const calls = data.calls || [];
   const live = calls.filter(c => c.state !== 'ended');
+  setRinging(live.some(c => c.state === 'dialing' && c.direction !== 'inbound'));
   const cap = $('cap');
   cap.innerHTML = `<b>${data.active}</b> of ${data.limit} lines in use`;
   cap.className = 'cap' + (data.active >= data.limit ? ' full' : '');
@@ -259,6 +333,7 @@ async function refresh() {
 
 $('dial').addEventListener('submit', async ev => {
   ev.preventDefault();
+  unlockAudio();            // this click is the gesture that lets the ring play
   $('err').textContent = '';
   $('info').hidden = true;
   const number = $('numbers').value.trim();
@@ -300,6 +375,11 @@ $('hangAllBtn').addEventListener('click', async () => {
   catch (e) { $('err').textContent = e.message; }
   finally { $('hangAllBtn').disabled = false; }
 });
+
+// Reloading the page mid-call loses the dial click, so take the first gesture
+// anywhere as permission to ring for calls that were already in flight.
+document.addEventListener('pointerdown', unlockAudio, { once: true });
+document.addEventListener('keydown', unlockAudio, { once: true });
 
 refresh();
 </script>

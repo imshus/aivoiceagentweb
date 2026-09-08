@@ -522,7 +522,9 @@ async def media_stream(ws: WebSocket):
     finally:
         if session.call_active:
             await session.cleanup()
-        _mark_ended(rec, rec.get("hangup_cause") or "stream_closed")
+        _mark_ended(rec, rec.get("hangup_cause")
+                    or getattr(session, "hangup_reason", None)
+                    or "stream_closed")
         rec["session"] = None
         try:
             await ws.close()

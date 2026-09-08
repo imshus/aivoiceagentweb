@@ -74,6 +74,16 @@ RENDER_MODEL = os.getenv("OPENAI_RENDER_MODEL", "gpt-5.6-luna")
 # FAQ_VARIANTS_FILE: pre-rendered Hinglish wordings of every approved answer
 #   (generated once, offline, by gen_variants.py). When present, ANSWER turns
 #   skip the render LLM too — and agent.py can play pre-synthesized audio.
+# Speak the question bank and nothing else. The classifier still ROUTES the
+# turn (which entry is being asked about, is it off-topic, did they say bye) —
+# that is what it is for — but it never gets to WRITE what the caller hears:
+#   ANSWER   → an approved pre-rendered wording, or the canonical answer itself
+#   CLARIFY  → the SAME entry again, in the next approved wording
+#   ASK/CHAT → the fixed cached lines, not a sentence the model made up
+#   DECLINE  → the fixed decline line, as always
+# So every reply is text a human approved, and every reply has cached audio.
+# Set false to let the render LLM reword answers and write its own questions.
+BANK_ONLY = os.getenv("BANK_ONLY", "true").lower() == "true"
 FAQ_LOCAL_MATCH = os.getenv("FAQ_LOCAL_MATCH", "true").lower() == "true"
 FAQ_SPECULATIVE = os.getenv("FAQ_SPECULATIVE", "true").lower() == "true"
 _FAQ_VARIANTS_RAW = os.getenv("FAQ_VARIANTS_FILE", "faq_variants.json")
@@ -788,7 +798,11 @@ def _entry_hash(qid: str) -> str:
 
 def load_variants(path: str | None = None) -> int:
     """Load pre-rendered wordings; returns how many entries got variants."""
-    global _VARIANTS
+    global _VARIANTS, _VARIANTS_EPOCH
+    # Bump first: any caller of this function is changing the wordings, and
+    # everything caching a view of them (agent's approved-text set) has to
+    # notice even when a load fails and leaves the old ones in place.
+    _VARIANTS_EPOCH += 1
     p = path or FAQ_VARIANTS_FILE
     try:
         with open(p, "r", encoding="utf-8") as f:
@@ -836,6 +850,27 @@ def pick_variant(qid: str, state: dict) -> str | None:
         ix = random.randrange(len(vs))  # different calls start on different wordings
     ix_map[qid] = ix + 1                # same-call repeats rotate to the next one
     return vs[ix % len(vs)]
+
+
+# Bumped on every load_variants() call. Callers that cache something derived
+# from the wordings compare against it instead of rebuilding on every turn —
+# the CRM adds an answer mid-run, so "loaded once at boot" is not true.
+_VARIANTS_EPOCH = 0
+
+
+def variants_epoch() -> int:
+    """How many times the wordings have been (re)loaded."""
+    return _VARIANTS_EPOCH
+
+
+def iter_canonical_texts():
+    """Every canonical bank answer. Under BANK_ONLY these can be spoken as-is
+    (an entry gen_variants.py has not covered yet), so agent.py pre-synthesizes
+    them and counts them as approved wordings."""
+    for entry in CANONICAL_ANSWERS.values():
+        text = (entry.get("a") or "").strip()
+        if text:
+            yield text
 
 
 def iter_variant_texts():
@@ -1501,7 +1536,7 @@ def route_and_render(history: list[dict],
 
         if action == "CHAT":
             state["last_action"] = "CHAT"
-            r = (decision.get("reply") or "").strip()
+            r = "" if BANK_ONLY else (decision.get("reply") or "").strip()
             yield r if r else CHAT_FALLBACK
             return
         if action == "ASK":
@@ -1516,7 +1551,7 @@ def route_and_render(history: list[dict],
                 yield DECLINE_LINE
                 return
             state["last_action"] = "ASK"
-            q = (decision.get("question") or "").strip()
+            q = "" if BANK_ONLY else (decision.get("question") or "").strip()
             yield q if q else ASK_FALLBACK
             return
         if action in ("DECLINE", "GUARD"):
@@ -1548,6 +1583,14 @@ def route_and_render(history: list[dict],
             # second attempt gets even simpler than the first.
             n = state.get("clarify_count", 0) + 1
             state["clarify_count"] = n
+            if BANK_ONLY:
+                # No re-wording: say the approved answer again. pick_variant
+                # rotates, so a second "matlab?" gets a genuinely DIFFERENT
+                # approved wording rather than the same sentence repeated —
+                # which is what the render LLM was doing here, unapproved.
+                logger.info(f"CLARIFY (bank-only) -> next approved wording for {qid}")
+                yield pick_variant(qid, state) or entry["a"]
+                return
             harder = ("\nThis is re-explanation attempt " + str(n) + " — the "
                       "caller STILL has not understood. Use the SIMPLEST everyday "
                       "words and very short sentences, ONE idea per sentence."
@@ -1590,6 +1633,13 @@ def route_and_render(history: list[dict],
             # .py's try_fast_answer() already played them from cached audio.)
             logger.info(f"FAQ pre-rendered variant used for {qid}")
             yield variant
+            return
+        if BANK_ONLY:
+            # gen_variants.py has not produced wordings for this entry yet. The
+            # canonical answer IS an approved answer, so speak it verbatim
+            # rather than have the render LLM improvise one.
+            logger.info(f"FAQ canonical answer used for {qid} (no variants yet)")
+            yield entry["a"]
             return
 
         async for tok in _render_entry(entry,

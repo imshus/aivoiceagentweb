@@ -23,6 +23,21 @@ load_dotenv()
 # and only rewords the ONE approved text — so facts come strictly from the bank
 # and the same intent yields the same facts every time. See faq_router.py.
 DETERMINISTIC_FAQ = os.getenv("DETERMINISTIC_FAQ", "true").lower() == "true"
+# Speak ONLY what is already in the pre-warmed audio cache: the pre-rendered
+# FAQ variants and the fixed lines (greeting / closing / decline / fallbacks /
+# small talk). A turn the router answers with anything else — a one-off line the
+# classifier wrote itself — is NOT spoken; the caller gets the cached
+# "which feature did you mean?" line and the question is flagged as unanswered,
+# so a human records the proper wording and it joins the bank (and the cache).
+# Nothing is ever synthesized live, so every reply is an approved one, costs no
+# TTS, and starts instantly. Set false for the old free-synthesis behaviour.
+CACHE_ONLY_REPLIES = os.getenv("CACHE_ONLY_REPLIES", "true").lower() == "true"
+if CACHE_ONLY_REPLIES and not DETERMINISTIC_FAQ:
+    # The legacy path free-generates the whole reply from the system prompt,
+    # so there is no approved wording to match against and nothing to enforce.
+    logging.getLogger("agent").warning(
+        "CACHE_ONLY_REPLIES has no effect while DETERMINISTIC_FAQ=false — "
+        "the legacy path synthesizes every reply live. Set DETERMINISTIC_FAQ=true.")
 
 DEEPGRAM_API_KEY = os.getenv("DEEPGRAM_API_KEY")
 MONGODB_URI = os.getenv("MONGODB_URI")
@@ -46,6 +61,16 @@ ELEVENLABS_MODEL = os.getenv("ELEVENLABS_MODEL", "eleven_flash_v2_5")
 # as done speaking and start replying. Deepgram already endpoints (~300ms), so
 # this can be small. Lower = snappier replies but more risk of cutting the user off.
 SILENCE_WAIT_SECONDS = float(os.getenv("SILENCE_WAIT_SECONDS", "0.1"))
+
+# Dead-air cutoff: hang up when the caller has said nothing for this long.
+# The clock only runs while the LINE IS THE CALLER'S — it is reset for as long
+# as the agent is speaking (or is about to), so a caller quietly listening to a
+# long answer is never cut off. Set to 0 to disable and let such calls run on.
+CALLER_SILENCE_HANGUP_SECONDS = float(
+    os.getenv("CALLER_SILENCE_HANGUP_SECONDS", "10"))
+# How often the watchdog checks. Small enough that the cut lands within a
+# fraction of a second of the deadline, cheap enough to ignore.
+_SILENCE_POLL_SECONDS = 0.25
 # NEVER TALK OVER THE CALLER: even after STT declares end-of-turn, hold the
 # reply for this long. Any fresh caller speech inside the window (an interim /
 # Flux Update that isn't our own echo) cancels the pending reply and the turn
@@ -641,6 +666,7 @@ llm_params = _fr.llm_params       # max_completion_tokens + reasoning_effort
 
 from faq_router import (route_and_render, try_fast_answer, speculate,
                         drop_speculation, iter_variant_texts,
+                        iter_canonical_texts,
                         DECLINE_LINE, ASK_FALLBACK, CHAT_FALLBACK,
                         CANONICAL_ANSWERS)  # noqa: E402
 
@@ -869,6 +895,22 @@ def is_hangup_intent(text: str) -> bool:
 # Avoids an ElevenLabs round-trip on every call for text that never changes.
 _tts_cache: dict[str, list[bytes]] = {}
 
+# ── One synthesis per line, however many calls want it at once ───────────────
+# Every cacheable line is spoken by every call, so a cold entry is asked for by
+# all of them within the same second — and without this each would run its own
+# ElevenLabs request, take its own concurrency slot, pay for the same audio N
+# times and race the others to write the same cache file. The first caller
+# synthesizes and streams; the rest wait on its result and replay it. Keyed by
+# text, which is the whole cache key: cacheable calls never pass previous_text.
+_tts_inflight: dict[str, asyncio.Future] = {}
+
+
+def _tts_inflight_finish(text: str, chunks: list[bytes] | None) -> None:
+    """Hand the result (or None, on failure/cancellation) to anyone waiting."""
+    fut = _tts_inflight.pop(text, None)
+    if fut is not None and not fut.done():
+        fut.set_result(chunks)
+
 # Persistent on-disk TTS cache. In-memory _tts_cache is per-process; this makes
 # synthesized audio survive restarts, so the one-time ElevenLabs cost of
 # pre-warming the fixed phrases + every FAQ variant is paid ONCE, ever, not on
@@ -929,11 +971,19 @@ def _tts_disk_save(text: str, chunks: list[bytes]) -> None:
     try:
         os.makedirs(TTS_CACHE_DIR, exist_ok=True)
         path = _tts_disk_path(text)
-        tmp = path + ".tmp"
+        # Unique per writer: two processes (the server and an offline
+        # gen_variants.py run) saving the SAME line to one shared ".tmp" would
+        # interleave their writes, and the second os.replace would publish a
+        # file made of both. The rename stays atomic either way.
+        tmp = f"{path}.{os.getpid()}.{uuid.uuid4().hex[:8]}.tmp"
         with open(tmp, "wb") as f:
             f.write(b"".join(chunks))
         os.replace(tmp, path)  # atomic — no half-written cache file
     except Exception as e:
+        try:
+            os.unlink(tmp)          # never leave a stray .tmp behind
+        except Exception:
+            pass
         if not _tts_disk_warned:
             _tts_disk_warned = True
             logger.warning(f"TTS disk cache write disabled ({e}); "
@@ -1040,6 +1090,28 @@ async def stream_tts_audio(
             for chunk in disk:
                 yield chunk
             return
+    leading = False
+    if use_cache:
+        waiting = _tts_inflight.get(text)
+        if waiting is not None:
+            # Another call is already synthesizing this exact line. Shielded so
+            # OUR cancellation (a barge-in on this call) never cancels the
+            # leader's future out from under the other listeners.
+            chunks = None
+            try:
+                chunks = await asyncio.shield(waiting)
+            except asyncio.CancelledError:
+                raise
+            except Exception as e:
+                logger.debug(f"Waited-on TTS synthesis failed: {e}")
+            if chunks:
+                for chunk in chunks:
+                    yield chunk
+                return
+            # The leader failed or was cut off — fall through and do it here.
+        if text not in _tts_inflight:
+            _tts_inflight[text] = asyncio.get_event_loop().create_future()
+            leading = True
     logger.info(f"Streaming TTS for: {text[:80]}...")
     tts_text = _fix_pronunciation(text)
     collected: list[bytes] = [] if use_cache else None
@@ -1085,11 +1157,19 @@ async def stream_tts_audio(
         if collected is not None:
             _tts_cache[text] = collected
             _tts_disk_save(text, collected)
+            if leading:
+                _tts_inflight_finish(text, collected)
+                leading = False
     except Exception as e:
         logger.error(f"Streaming TTS error: {e}")
         return
     finally:
         _tts_slot_release()
+        # Failed, or the caller walked away mid-stream (barge-in cancels the
+        # generator). Either way the waiters must be released, not left hanging
+        # for the rest of the call — None tells them to synthesize it themselves.
+        if leading:
+            _tts_inflight_finish(text, None)
 
 async def stream_tts_ws(
     token_iter: AsyncGenerator[str, None],
@@ -1255,16 +1335,28 @@ async def _peek_single(token_iter):
 
 
 _fixed_texts_cache: set | None = None
+_fixed_texts_epoch = -1
 
 
 def _known_fixed_texts() -> set:
     """Every reply text that is FIXED by construction — pre-rendered variants
     plus the router's fixed lines. These are the only single-yield replies the
-    audio cache may serve; classifier-written one-off lines still stream."""
-    global _fixed_texts_cache
-    if _fixed_texts_cache is None:
+    audio cache may serve; classifier-written one-off lines still stream (and
+    under CACHE_ONLY_REPLIES are refused outright).
+
+    Rebuilt whenever the wordings are reloaded. Recording an answer in the CRM
+    adds a variant and prewarms its audio mid-run, and a set built once at boot
+    would keep rejecting that brand-new answer until a restart."""
+    global _fixed_texts_cache, _fixed_texts_epoch
+    epoch = _fr.variants_epoch()
+    if _fixed_texts_cache is None or epoch != _fixed_texts_epoch:
         _fixed_texts_cache = {DECLINE_LINE, ASK_FALLBACK, CHAT_FALLBACK,
-                              *iter_variant_texts()}
+                              *iter_variant_texts(),
+                              # Bank-only speaks the canonical answer for an
+                              # entry with no generated wordings yet — approved
+                              # text, so it belongs in the approved set.
+                              *iter_canonical_texts()}
+        _fixed_texts_epoch = epoch
     return _fixed_texts_cache
 
 # Matches the leading text up to and including the first sentence terminator
@@ -1422,6 +1514,10 @@ class CallSession:
         self.deepgram_ws = None
         self._deepgram_task: asyncio.Task | None = None
         self._keepalive_task: asyncio.Task | None = None
+        self._silence_task: asyncio.Task | None = None
+        # Last moment the line was NOT dead air: caller speech, or the agent
+        # talking. Seeded at the start so the greeting itself counts.
+        self._last_activity = 0.0
         self.call_active = True
         # cleanup() has two callers on a phone call — the /hangup webhook and
         # the media socket closing — and they can arrive in the same tick. One
@@ -1471,6 +1567,14 @@ class CallSession:
                        "no_voice": False,
                        "no_response": False}
         self.unresolved: list[dict] = []
+        # Dead air ended this call. Kept OUT of _flags on purpose: those mean
+        # "the agent failed to answer something" and drive the /unavailable
+        # console, and a caller who simply stopped talking has no question to
+        # answer. Recorded on the call document so it is still visible.
+        self._caller_silent = False
+        # Why the agent ended the call, for the board to show. None = the call
+        # ended some other way (caller hung up, console, socket dropped).
+        self.hangup_reason: str | None = None
 
         logger.info(f"📞 New CallSession: caller={caller_id}, call_uuid={call_uuid}")
         logger.info(f"Barge-in armed: enabled={BARGE_IN_ENABLED}, "
@@ -1529,6 +1633,47 @@ class CallSession:
             # caller asked something we have no answer for.
             self._flag_issue("answer_unavailable", question, reply)
 
+    def _mark_activity(self):
+        """The line is alive right now — restart the dead-air clock."""
+        self._last_activity = asyncio.get_event_loop().time()
+
+    async def _silence_watchdog(self):
+        """Cut a call the caller has gone silent on.
+
+        Written as a poll rather than a timer that gets cancelled and recreated
+        on every transcript, because the thing being measured is not "time since
+        the last event" but "time the caller has owed us a turn" — the clock has
+        to keep being pushed forward while the agent speaks and while a reply is
+        being prepared, and a poll expresses that directly."""
+        try:
+            while self.call_active:
+                await asyncio.sleep(_SILENCE_POLL_SECONDS)
+                # The agent is talking (or its audio is still playing out, or a
+                # reply is on its way): not the caller's silence, so not dead air.
+                if (self.streaming_active or self._audio_is_playing()
+                        or (self.current_stream_task
+                            and not self.current_stream_task.done())
+                        or (self.silence_timer and not self.silence_timer.done())):
+                    self._mark_activity()
+                    continue
+                idle = asyncio.get_event_loop().time() - self._last_activity
+                if idle < CALLER_SILENCE_HANGUP_SECONDS:
+                    continue
+                logger.info(f"No caller speech for {idle:.1f}s "
+                            f"(limit {CALLER_SILENCE_HANGUP_SECONDS:.0f}s) — "
+                            f"ending call {self.call_uuid}")
+                self._caller_silent = True
+                self.hangup_reason = "caller_silent"
+                # Do NOT clear call_active here: the telephony media loop treats
+                # that as "the call is over" and would close the socket out from
+                # under the goodbye. cleanup() clears it once we have hung up.
+                await self._say_and_hangup()
+                return
+        except asyncio.CancelledError:
+            raise
+        except Exception as e:
+            logger.error(f"Silence watchdog error: {e}")
+
     async def start_deepgram(self):
         # Run the listener as a supervised loop that reconnects if the STT
         # socket drops, plus a keepalive so Deepgram never closes it on us.
@@ -1536,6 +1681,9 @@ class CallSession:
             return True
         self._deepgram_task = asyncio.create_task(self._deepgram_loop())
         self._keepalive_task = asyncio.create_task(self._deepgram_keepalive())
+        if CALLER_SILENCE_HANGUP_SECONDS > 0:
+            self._mark_activity()
+            self._silence_task = asyncio.create_task(self._silence_watchdog())
         return True
 
     async def _deepgram_loop(self):
@@ -1592,6 +1740,8 @@ class CallSession:
             # UtteranceEnd. transcript is CUMULATIVE for the current turn.
             event = data.get("event")
             transcript = (data.get("transcript") or "").strip()
+            if transcript:
+                self._mark_activity()   # the caller is talking
             words = data.get("words") or []
             confs = [w.get("confidence") for w in words
                      if isinstance(w, dict) and w.get("confidence") is not None]
@@ -1676,6 +1826,8 @@ class CallSession:
             alternatives = channel.get("alternatives", [])
             if alternatives:
                 transcript = alternatives[0].get("transcript", "")
+                if transcript.strip():
+                    self._mark_activity()   # the caller is talking
                 confidence = alternatives[0].get("confidence")
                 is_final = data.get("is_final", False)
                 # speech_final = Deepgram's endpointer has decided the caller
@@ -2275,6 +2427,25 @@ class CallSession:
                             on_text(single)
                             sent_bytes = await self._play_audio_streaming(
                                 stream_tts_audio(single, use_cache=True))
+                        elif CACHE_ONLY_REPLIES:
+                            # Not an approved wording, so there is no cached
+                            # audio for it and we will not invent one on the
+                            # line. Close the generator (it may still be pulling
+                            # from the LLM) and answer with a cached line.
+                            try:
+                                await raw_iter.aclose()
+                            except Exception:
+                                pass
+                            logger.info(
+                                "Cache-only: router produced an unapproved "
+                                f"reply {(single or '<streamed>')[:60]!r} — "
+                                "speaking ASK_FALLBACK instead")
+                            self._flag_issue("answer_unavailable",
+                                             self._turn_user_text or "",
+                                             single or "")
+                            on_text(ASK_FALLBACK)
+                            sent_bytes = await self._play_audio_streaming(
+                                stream_tts_audio(ASK_FALLBACK, use_cache=True))
                         else:
                             if single is not None:
                                 async def _one(_t=single):
@@ -2458,6 +2629,8 @@ class CallSession:
                 "no_voice": self._flags["no_voice"],
                 "no_response": self._flags["no_response"],
                 "needs_attention": any(self._flags.values()),
+                # Ended by the dead-air watchdog, not by either party.
+                "caller_silent": self._caller_silent,
                 # The failing topics, in order. Each item has the caller's exact
                 # question and an empty "proper_answer" to be filled in here.
                 "unresolved": self.unresolved,
@@ -2492,6 +2665,8 @@ class CallSession:
             self._deepgram_task.cancel()
         if self._keepalive_task and not self._keepalive_task.done():
             self._keepalive_task.cancel()
+        if self._silence_task and not self._silence_task.done():
+            self._silence_task.cancel()
         if self.silence_timer and not self.silence_timer.done():
             self.silence_timer.cancel()
         if self.current_stream_task and not self.current_stream_task.done():
@@ -2515,7 +2690,8 @@ async def prewarm_tts_cache():
                                 WE_CALLED_THEM_GREETING, CLOSING_TEXT, REPEAT_LINE,
                                 DECLINE_LINE, ASK_FALLBACK, CHAT_FALLBACK,
                                 *SMALLTALK_RESPONSES.values(),
-                                *iter_variant_texts())))
+                                *iter_variant_texts(),
+                                *iter_canonical_texts())))
     fingerprint = hashlib.sha256(
         "\u0000".join([_tts_settings_key(), *texts]).encode("utf-8")).hexdigest()
     mpath = (os.path.join(TTS_CACHE_DIR, _PREWARM_MANIFEST)
