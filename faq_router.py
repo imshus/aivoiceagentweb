@@ -637,7 +637,41 @@ def entry_question(entry: dict, all_forms: bool = False) -> str:
 DECLINE_LINE = ("माफ़ कीजिए, मैं सिर्फ हमारे jewelry software के बारे में help कर "
                 "सकती हूँ। इसके बारे में कुछ पूछना चाहेंगे?")
 ASK_FALLBACK = "Sorry, आप software के किस feature के बारे में पूछ रहे हैं?"
-CHAT_FALLBACK = "हेलो! बताइए, मैं कैसे help कर सकती हूँ?"
+CHAT_FALLBACK = "मैं कैसे help कर सकती हूँ?"
+
+# "आप कौन हैं?" asks WHO IS SPEAKING and deserves an answer about that, not the
+# greeting line. Without this the turn reaches the classifier as CHAT and, since
+# BANK_ONLY stops the classifier writing its own replies, comes back as the
+# generic greeting - answering a question nobody asked.
+IDENTITY_LINE = "मैं MRPscan Software की AI assistant हूँ।"
+
+# Anchored to the WHOLE turn (like the small-talk patterns): "ये software कौन
+# use कर सकता है?" is a bank question and must never be swallowed by this.
+_IDENTITY_RE = re.compile(
+    r"^(?:hello+|hi|हेलो|हैलो|नमस्ते)?[\s,]*"
+    r"(?:"
+    r"(?:(?:kya|क्या)\s+)?(?:aap|app|tum|आप|तुम)\s*(?:kaun|कौन)\s*"
+    r"(?:ho|hain|hai|हो|हैं|है)?"
+    r"|(?:kaun|कौन)\s*(?:bol|बोल)\s*(?:rah[aei]|रह[ाीे])\s*"
+    r"(?:ho|hai|hain|है|हो|हैं)?"
+    r"|(?:kaun|कौन)\s*(?:ho|hain|hai|हो|हैं|है)"
+    r"|who\s+(?:are|r)\s+(?:you|u)"
+    r"|who\s+is\s+this|who\s+am\s+i\s+(?:speaking|talking)\s+(?:to|with)"
+    r"|what(?:'?s| is)\s+your\s+name"
+    r"|(?:aap\s*ka|aapka|तुम्हारा|आपका)\s*(?:naam|नाम)"
+    r"(?:\s*(?:kya|क्या))?(?:\s*(?:hai|है))?"
+    r"|(?:(?:kya|क्या)\s+)?(?:aap|आप|tum|तुम)\s*(?:ek\s+|एक\s+)?"
+    r"(?:robot|bot|insaan|इंसान|human|machine|मशीन|ai|एआई|रोबोट)\s*"
+    r"(?:ho|hain|hai|हो|हैं|है)?(?:\s*(?:kya|क्या))?"
+    r"|are\s+you\s+(?:a\s+)?(?:robot|human|bot|machine|real\s+person|ai)"
+    r"|(?:recording|रिकॉर्डिंग)\s*(?:hai|है)(?:\s*(?:ya|या)\s*(?:real|असली))?"
+    r")"
+    r"[\s!.,।?]*$", re.IGNORECASE)
+
+
+def is_identity_question(text: str) -> bool:
+    """True only when the WHOLE turn is asking who is speaking."""
+    return bool(_IDENTITY_RE.match((text or "").strip()))
 
 # ── "Didn't understand / say it again" detector (CLARIFY fast path) ─────────
 # When the ENTIRE turn is just a clarification request — "iska matlab kya
@@ -1000,9 +1034,8 @@ Actions, in strict priority order:
    hai', 'achha', 'hmm', 'thank you'), or identity questions ('kaun bol rahi
    ho?', 'aap AI ho kya?', 'recording hai ya real?'). Reply in ONE SMALL,
    professional Hinglish line (max ~8 words, Hindi in Devanagari, NEVER 'जी'):
-   - greeting / line check → 'हेलो! बताइए, मैं कैसे help कर सकती हूँ?' or
-     'हाँ, मैं सुन रही हूँ — बोलिए।'
-   - thanks / ok / hmm → 'Most welcome!' or 'ठीक है।'
+   - greeting / line check → 'मैं कैसे help कर सकती हूँ?'
+   - ok / hmm → 'Most welcome!' or 'ठीक है।'
    - identity → 'मैं MRPscan Software की AI assistant हूँ।'
    NEVER put product facts, prices, or the MRP pitch in a CHAT reply.
 2. CLARIFY — the caller did not hear or did not understand the LAST reply and
@@ -1536,7 +1569,13 @@ def route_and_render(history: list[dict],
 
         if action == "CHAT":
             state["last_action"] = "CHAT"
-            r = "" if BANK_ONLY else (decision.get("reply") or "").strip()
+            if BANK_ONLY:
+                # A CHAT turn that is really "who is speaking?" gets the
+                # identity line; every other CHAT turn gets the greeting line.
+                yield (IDENTITY_LINE if is_identity_question(last_user)
+                       else CHAT_FALLBACK)
+                return
+            r = (decision.get("reply") or "").strip()
             yield r if r else CHAT_FALLBACK
             return
         if action == "ASK":

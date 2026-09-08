@@ -594,6 +594,89 @@ async def export_xlsx(request: Request, all: int = 0):
         headers={"Content-Disposition": f'attachment; filename="{name}"'})
 
 
+@router.get("/api/download/variants.json")
+async def download_variants(request: Request):
+    """faq_variants.json exactly as it sits on disk — the approved spoken
+    wordings. Served as a file so it can be backed up, diffed, or copied to
+    another machine without shell access to the server."""
+    if not _authed(request):
+        return _denied()
+    path = fr.FAQ_VARIANTS_FILE
+    try:
+        with open(path, "rb") as f:
+            blob = f.read()
+    except FileNotFoundError:
+        return JSONResponse(
+            {"error": f"No variants file yet at {path} — run gen_variants.py."},
+            status_code=404)
+    except Exception as e:
+        return JSONResponse({"error": f"Could not read {path}: {e}"},
+                            status_code=500)
+    stamp = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M")
+    name = f"faq_variants-{stamp}.json"
+    logger.info(f"CRM downloaded {path} ({len(blob)} bytes) as {name}")
+    return Response(blob, media_type="application/json",
+                    headers={"Content-Disposition": f'attachment; filename="{name}"'})
+
+
+@router.get("/api/download/tts-cache.zip")
+async def download_tts_cache(request: Request):
+    """The whole pre-warmed voice cache as one zip.
+
+    Clips are named by a hash of (voice settings + text), so on their own the
+    files are unreadable — a listener cannot tell which line is which. The zip
+    therefore also carries index.json, mapping every filename to the text it
+    speaks, which is what makes the download worth having: it can be checked,
+    archived, or dropped into another deployment's tts_cache/ as-is."""
+    if not _authed(request):
+        return _denied()
+    import zipfile
+    cache_dir = agent.TTS_CACHE_DIR
+    if not cache_dir or not os.path.isdir(cache_dir):
+        return JSONResponse(
+            {"error": "The TTS cache is disabled or has not been created yet."},
+            status_code=404)
+
+    # filename -> spoken text, for every line we know how to name.
+    index = {}
+    for text in agent._known_fixed_texts():
+        index[os.path.basename(agent._tts_disk_path(text))] = text
+    for text in (agent.GREETING_TEXT, agent.THEY_CALLED_US_GREETING,
+                 agent.WE_CALLED_THEM_GREETING, agent.CLOSING_TEXT,
+                 agent.REPEAT_LINE, *agent.SMALLTALK_RESPONSES.values()):
+        index[os.path.basename(agent._tts_disk_path(text))] = text
+
+    buf = io.BytesIO()
+    n = total = 0
+    try:
+        with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as z:
+            for fn in sorted(os.listdir(cache_dir)):
+                if not fn.endswith((".ulaw", ".json")):
+                    continue          # skip stray .tmp files from a live write
+                full = os.path.join(cache_dir, fn)
+                if not os.path.isfile(full):
+                    continue
+                z.write(full, arcname=f"tts_cache/{fn}")
+                n += 1
+                total += os.path.getsize(full)
+            z.writestr("tts_cache/index.json",
+                       json.dumps({"clips": index,
+                                   "note": "filename -> the text this clip speaks"},
+                                  ensure_ascii=False, indent=2))
+    except Exception as e:
+        logger.error(f"CRM tts-cache zip failed: {e}")
+        return JSONResponse({"error": f"Could not build the zip: {e}"},
+                            status_code=500)
+
+    stamp = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M")
+    name = f"tts_cache-{stamp}.zip"
+    blob = buf.getvalue()
+    logger.info(f"CRM downloaded the voice cache: {n} files, "
+                f"{total/1e6:.1f} MB raw -> {len(blob)/1e6:.1f} MB zipped ({name})")
+    return Response(blob, media_type="application/zip",
+                    headers={"Content-Disposition": f'attachment; filename="{name}"'})
+
+
 @router.get("/health")
 async def health():
     return {"status": "healthy", "bank": len(fr.CANONICAL_ANSWERS),
@@ -842,6 +925,10 @@ APP_PAGE = f"""<!doctype html>
       {ICONS["spark"]} <span>Pre-warm<span class="wide-only"> missing</span></span></button>
     <button class="dl" onclick="dl()">
       {ICONS["download"]} <span>Download<span class="wide-only"> whole bank</span></span></button>
+    <button class="ghost" onclick="dlVariants()" title="faq_variants.json - the approved spoken wordings">
+      {ICONS["download"]} <span>Variants<span class="wide-only"> JSON</span></span></button>
+    <button class="ghost" onclick="dlCache()" title="Every pre-warmed voice clip, zipped, with an index of what each one says">
+      {ICONS["download"]} <span>Voice<span class="wide-only"> cache</span></span></button>
     <form method="post" action="/crm/logout" style="display:inline">
       <button class="ghost" type="submit">{ICONS["logout"]} <span>Sign out</span></button>
     </form>
@@ -1070,6 +1157,18 @@ async function warmAll(){{
 }}
 
 function dl(){{ window.location = '/crm/api/export.xlsx?all=1'; }}
+function dlVariants(){{ window.location = '/crm/api/download/variants.json'; }}
+// The zip is built on the fly and runs to a few MB, so say something first -
+// otherwise the button looks dead for the second or two it takes.
+function dlCache(){{
+  // The zip is built on the fly and runs to a few MB, so say something in the
+  // header - otherwise the button looks dead for the second or two it takes.
+  const b = document.getElementById('bankinfo');
+  const was = b ? b.textContent : '';
+  if(b){{ b.textContent = 'building the voice-cache zip…'; }}
+  window.location = '/crm/api/download/tts-cache.zip';
+  setTimeout(function(){{ if(b) b.textContent = was; }}, 4000);
+}}
 
 let bank = [];
 async function load(){{

@@ -251,14 +251,12 @@ _INTERRUPT_MARK = " [interrupted by caller — rest not heard]"
 # "hello, MRP kaise nikale?" still goes to the brain. Hangup intents are
 # checked BEFORE this, so "ok bye" still ends the call.
 SMALLTALK_RESPONSES = {
-    "greeting":   "बताइए, मैं कैसे help कर सकती हूँ?",
+    "greeting":   "मैं कैसे help कर सकती हूँ?",
     # A bare "hello" AFTER the conversation is under way is a nudge / "are you
     # there?", not a fresh start — it gets this SMALL acknowledgement instead of
     # the full opener (selected in _process_after_silence, same audio cache).
-    "mid_hello":  "हाँ जी, बोलिए।",
-    "line_check": "हाँ, मैं सुन रही हूँ — बोलिए।",
-    "thanks":     "Most welcome!",
-    "ack":        "ठीक है।",
+    "mid_hello":  "मैं कैसे help कर सकती हूँ?",
+    "line_check": "मैं कैसे help कर सकती हूँ?",
 }
 _SMALLTALK_PATTERNS = [
     ("greeting", re.compile(
@@ -271,13 +269,6 @@ _SMALLTALK_PATTERNS = [
         r"|aw?aa?z\s*aa?\s*rahi\s*hai|आवाज़?\s*आ\s*रही\s*है"
         r"|sun[ao]?i\s*de\s*rah[ai]\s*hai|सुनाई\s*दे\s*रह[ाी]\s*है)"
         r"[\s!.,।?]*$", re.IGNORECASE)),
-    ("thanks", re.compile(
-        r"^(?:ok(?:ay)?[\s,]*)?(?:thank\s*(?:you|u)|thanks|thanku|धन्यवाद|शुक्रिया)"
-        r"(?:\s+(?:so\s+much|very\s+much|a\s+lot|sir|madam))?[\s!.,।]*$",
-        re.IGNORECASE)),
-    ("ack", re.compile(
-        r"^(?:ok(?:ay)?|ठीक\s*है|theek\s*hai|thik\s*hai|अच्छा|ach?ha)[\s!.,।]*$",
-        re.IGNORECASE)),
 ]
 
 def match_smalltalk(text: str) -> str | None:
@@ -631,7 +622,7 @@ MULAW_CONTENT_TYPE = "audio/x-mulaw"
 # mid-conversation. Repaired below; "ok thanks for the call" is now a proper
 # word-bounded alternative in the English pattern.
 HANGUP_PATTERNS = [
-    r"\b(cut the call|hang up|hangup|goodbye|good bye|bye bye|ok bye|okay bye|stop calling|not interested|i am not interested|i don'?t want|no thanks|maybe later|that'?s all|that is all|nothing else|we are done|i am done|end the call|end call|ok thanks for the call)\b",
+    r"\b(cut the call|hang up|hangup|goodbye|good bye|bye bye|ok bye|okay bye|stop calling|not interested|i am not interested|i don'?t want|no thanks|maybe later|that'?s all|that is all|nothing else|we are done|i am done|end the call|end call|ok thanks for the call | ok thank you | thank you)\b",
     # FIX (live call 2026-07-04): "Ok, thanks for the call." and "Call cut हो
     # भाई" were answered with small talk instead of the closing — the caller
     # had to cut the call themselves. Hinglish word order ("call cut", "call
@@ -652,6 +643,49 @@ HANGUP_PATTERNS = [
     r"(call रखो|कॉल रखो|कॉल काट|कॉल बंद कर|फ़ोन रखो|फोन रखो|फ़ोन काट|रखता हूँ|रखती हूँ|बाय बाय|ओके बाय|ठीक है बाय|मैं इंटरेस्टेड नहीं हूँ|बस करो|फिर कभी|अलविदा|दिलचस्पी नहीं|ठीक है बाद में)",
 ]
 
+# ── Thanks = the caller is done ──────────────────────────────────────────────
+# A caller who says "Thanks!", "Bahut bahut shukriya" or "Abhi rakhta hoon" has
+# finished; answering "Most welcome!" and holding the line makes them hang up
+# on us. These end the call with the closing line instead.
+#
+# ANCHORED TO THE WHOLE TURN, unlike the patterns above which are substring
+# searches. That distinction is the whole safety story here: "thanks" is a
+# closing only when it is ALL the caller said. "Thanks, ek aur sawaal hai" and
+# "thank you, ab batao MRP kaise nikale" are questions with a polite opener,
+# and cutting those off would be far worse than answering one extra turn.
+#
+# Set THANKS_ENDS_CALL=false to go back to the old behaviour, where a bare
+# thanks got the SMALLTALK_RESPONSES["thanks"] line and the call continued.
+THANKS_ENDS_CALL = os.getenv("THANKS_ENDS_CALL", "true").lower() == "true"
+
+# Openers the caller may put in front ("Noted, thanks", "Sahi hai, thanks!").
+_TH_LEAD = (r"(?:ok(?:ay)?|are|arre|अरे|sahi\s*hai|सही\s*है|theek\s*hai|thik\s*hai"
+            r"|ठीक\s*है|achh?a|अच्छा|noted|looks\s*good|bahut|बहुत|chalo|चलो|great|"
+            r"perfect|badhiya|बढ़िया)")
+# The thanks / appreciation itself.
+_TH_CORE = (r"(?:thanks?|thank\s*(?:you|u)|thanku|thnx|tnx|shukriy?a+|शुक्रिया"
+            r"|dhanyavaa?d|dhanyawaa?d|धन्यवाद|cheers|appreciate\s*(?:it|this)"
+            r"|much\s+appreciated|appreciated)")
+# What may trail it ("a lot", "yaar", "for your help", "iski zaroorat thi").
+_TH_TAIL = (r"(?:a\s*lot|a\s*ton|so\s*much|very\s*much|yaar|यार|bhai|भाई|boss|बॉस"
+            r"|bro|sir|madam|maam|ji|जी|for\s+(?:this|that|it|everything|help"
+            r"|the\s+(?:call|time|help|info(?:rmation)?)|your\s+(?:help|time))"
+            r"|iski\s+zaroorat\s+thi|इसकी\s+ज़?रूरत\s+थी)")
+_THANKS_CLOSER = (r"^(?:" + _TH_LEAD + r"[\s,]*)*" + _TH_CORE +
+                  r"(?:[\s,]*(?:" + _TH_TAIL + r"|" + _TH_CORE + r"))*[\s]*$")
+# "Abhi rakhta hoon", "Main call back karta hoon" — signing off without a bye.
+# The Devanagari रखता हूँ is already covered above; these are the Latin forms.
+_SIGNOFF = (r"^(?:ab|abhi|अभी|main|मैं|me)?[\s,]*"
+            r"(?:(?:call\s*back|कॉल\s*बैक)\s*(?:kar|कर)(?:ta|ti|ता|ती)?\s*"
+            r"(?:h(?:oo|u|ū)?n|हूँ|हूं)?"
+            r"|rakh(?:ta|ti)\s*(?:h(?:oo|u|ū)?n|हूँ|हूं)"
+            r"|baad\s*(?:me|mein|में)\s*(?:baat|बात)\s*(?:karte|करते)\s*"
+            r"(?:hain|हैं)?)[\s]*$")
+
+if THANKS_ENDS_CALL:
+    HANGUP_PATTERNS.append(_THANKS_CLOSER)
+HANGUP_PATTERNS.append(_SIGNOFF)
+
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 logger = logging.getLogger("agent")
 
@@ -668,7 +702,15 @@ from faq_router import (route_and_render, try_fast_answer, speculate,
                         drop_speculation, iter_variant_texts,
                         iter_canonical_texts,
                         DECLINE_LINE, ASK_FALLBACK, CHAT_FALLBACK,
+                        IDENTITY_LINE,
                         CANONICAL_ANSWERS)  # noqa: E402
+
+# "आप कौन हैं?" is answered on the deterministic small-talk fast path like the
+# rest: no classifier call, no LLM, audio already cached. Registered here and
+# not in the table further up because the wording lives in faq_router with the
+# other fixed lines, and that import only happens at this point.
+_SMALLTALK_PATTERNS.append(("identity", _fr._IDENTITY_RE))
+SMALLTALK_RESPONSES["identity"] = IDENTITY_LINE
 
 
 def _check_faq_consistency() -> None:
@@ -1355,7 +1397,7 @@ def _known_fixed_texts() -> set:
                               # Bank-only speaks the canonical answer for an
                               # entry with no generated wordings yet — approved
                               # text, so it belongs in the approved set.
-                              *iter_canonical_texts()}
+                              *iter_canonical_texts(), IDENTITY_LINE}
         _fixed_texts_epoch = epoch
     return _fixed_texts_cache
 
@@ -2691,7 +2733,7 @@ async def prewarm_tts_cache():
                                 DECLINE_LINE, ASK_FALLBACK, CHAT_FALLBACK,
                                 *SMALLTALK_RESPONSES.values(),
                                 *iter_variant_texts(),
-                                *iter_canonical_texts())))
+                                *iter_canonical_texts(), IDENTITY_LINE)))
     fingerprint = hashlib.sha256(
         "\u0000".join([_tts_settings_key(), *texts]).encode("utf-8")).hexdigest()
     mpath = (os.path.join(TTS_CACHE_DIR, _PREWARM_MANIFEST)
