@@ -134,16 +134,15 @@ FROM_NUMBER=+91…           # your Vobiz number, E.164
 PUBLIC_URL=https://…       # the server's public https name (AWS: see "Run on AWS"), no trailing slash
 DEFAULT_COUNTRY_CODE=91    # optional: prefix for bare 10-digit numbers
 INBOUND_ENABLED=true       # optional: answer calls made to FROM_NUMBER (default true)
-CALL_GREETING_TEXT=…       # optional: the opening line on the PHONE, both directions
-INBOUND_GREETING_TEXT=…    # optional: override it for incoming calls only
-OUTBOUND_GREETING_TEXT=…   # optional: override it for outgoing calls only
+INBOUND_GREETING_TEXT=…    # optional: the opening line for INCOMING calls
+OUTBOUND_GREETING_TEXT=…   # optional: the opening line for OUTGOING calls
 ```
 
-The phone opening line is different from the browser one: on a call the agent introduces
-herself as Preeti from MRP scan and asks how she can help
-(`agent.CALL_GREETING_TEXT`, used for incoming and outgoing alike), while the browser page keeps
-the "नमस्ते! MRPscan Software में आपका स्वागत है" welcome (`agent.GREETING_TEXT`) — that is not a
-phone call. Set `INBOUND_GREETING_TEXT` / `OUTBOUND_GREETING_TEXT` to split the two directions.
+An INCOMING call opens differently from everything else: someone rang our number, so the agent
+introduces herself as Preeti from MRP scan and asks how she can help
+(`agent.INBOUND_GREETING_TEXT`). Outgoing calls and the browser page both open with the
+"नमस्ते! MRPscan Software में आपका स्वागत है" welcome (`agent.GREETING_TEXT`); set
+`OUTBOUND_GREETING_TEXT` to give outgoing calls a line of their own.
 Everything after the opening line is the normal FAQ-bank flow. All of these are pre-warmed with
 the other fixed lines (`python gen_variants.py`), so the first word plays from `tts_cache/` the
 moment the call connects.

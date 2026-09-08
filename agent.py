@@ -191,19 +191,20 @@ _COMMON_WORDS = {
     "वो", "में", "से", "और", "तो", "भी", "न", "पर", "एक", "आप", "मैं", "हम", "इस", "उस",
 }
 # Fixed phrases (never change) — cached & pre-warmed so TTS never delays them.
+# The WELCOME line: the browser page (ui/talk.html), and outbound calls, both
+# open with it.
 GREETING_TEXT = "नमस्ते! MRPscan Software में आपका स्वागत है। बताइए, मैं कैसे help कर सकती हूँ?"
-# Opening line on the PHONE (vobiz_calls.py) — inbound and outbound both. On a
-# call Preeti names herself and the company; GREETING_TEXT above stays the
-# BROWSER greeting (ui/talk.html), which is never a phone call. Pre-warmed like
-# every other fixed line. Override the phone line with CALL_GREETING_TEXT, or
-# give each direction its own with INBOUND_GREETING_TEXT /
-# OUTBOUND_GREETING_TEXT in .env.
-CALL_GREETING_TEXT = os.getenv(
-    "CALL_GREETING_TEXT",
+# INBOUND phone calls open differently: someone rang OUR number, so Preeti names
+# herself and the company instead of welcoming them to a page. Pre-warmed like
+# every other fixed line (see prewarm_tts_cache) — the audio for both lines
+# already sits in tts_cache/, so neither costs a TTS call at pick-up time.
+INBOUND_GREETING_TEXT = os.getenv(
+    "INBOUND_GREETING_TEXT",
     "Hello sir, मैं MRP scan से प्रीति बोल रही हूं। आपकी कुछ inquiry थी app से related, "
     "बताएं मैं आपकी क्या help कर सकती हूं?")
-INBOUND_GREETING_TEXT = os.getenv("INBOUND_GREETING_TEXT", CALL_GREETING_TEXT)
-OUTBOUND_GREETING_TEXT = os.getenv("OUTBOUND_GREETING_TEXT", CALL_GREETING_TEXT)
+# We called THEM: the same welcome line as the page. Set OUTBOUND_GREETING_TEXT
+# in .env to give outgoing calls their own opener.
+OUTBOUND_GREETING_TEXT = os.getenv("OUTBOUND_GREETING_TEXT", GREETING_TEXT)
 # Kept SHORT on purpose: the caller hears this whole line before the line drops,
 # so a long goodbye = long "why isn't it hanging up?" delay. ~1.5s of speech.
 CLOSING_TEXT = "आपके समय के लिए धन्यवाद! Call अब end कर रही हूँ, आपका दिन शुभ रहे!"
