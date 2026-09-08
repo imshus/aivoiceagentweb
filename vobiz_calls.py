@@ -336,6 +336,11 @@ async def rest_hangup(rec: dict) -> None:
                         logger.info(f"REST hangup OK for call {ident}")
                         return
                     body = await resp.text()
+                    if resp.status == 404:
+                        # Vobiz has already dropped this leg (the customer hung
+                        # up, or our stop frame ended it) — nothing left to cut.
+                        logger.info(f"REST hangup: call {ident} was already gone")
+                        return
                     if i + 1 < len(urls):
                         logger.warning(f"REST hangup via {url} returned {resp.status} "
                                        f"{body[:120]} — retrying the other form")

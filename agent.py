@@ -1419,6 +1419,10 @@ class CallSession:
         self._deepgram_task: asyncio.Task | None = None
         self._keepalive_task: asyncio.Task | None = None
         self.call_active = True
+        # cleanup() has two callers on a phone call — the /hangup webhook and
+        # the media socket closing — and they can arrive in the same tick. One
+        # call must save ONE transcript, so cleanup is idempotent.
+        self._cleaned = False
         self.current_stream_task: asyncio.Task | None = None
         self.streaming_active = False
         # Text the agent is currently speaking — used to filter out its own echo
@@ -2432,6 +2436,9 @@ class CallSession:
             logger.error(f"Message handler error: {e}")
 
     async def cleanup(self):
+        if self._cleaned:         # already torn down and saved — see __init__
+            return
+        self._cleaned = True
         self.call_active = False  # stop the Deepgram reconnect loop & keepalive
         drop_speculation(self.faq_state)  # cancel any pending speculative classify
         if mongo_client is not None:
