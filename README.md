@@ -134,15 +134,19 @@ FROM_NUMBER=+91…           # your Vobiz number, E.164
 PUBLIC_URL=https://…       # the server's public https name (AWS: see "Run on AWS"), no trailing slash
 DEFAULT_COUNTRY_CODE=91    # optional: prefix for bare 10-digit numbers
 INBOUND_ENABLED=true       # optional: answer calls made to FROM_NUMBER (default true)
-INBOUND_GREETING_TEXT=…    # optional: the opening line for INCOMING calls
-OUTBOUND_GREETING_TEXT=…   # optional: the opening line for OUTGOING calls
+GREETING_THEY_CALLED_US=…  # optional: opener when a customer rings our number
+GREETING_WE_CALLED_THEM=…  # optional: opener when we place the call
 ```
 
-An INCOMING call opens differently from everything else: someone rang our number, so the agent
-introduces herself as Preeti from MRP scan and asks how she can help
-(`agent.INBOUND_GREETING_TEXT`). Outgoing calls and the browser page both open with the
-"नमस्ते! MRPscan Software में आपका स्वागत है" welcome (`agent.GREETING_TEXT`); set
-`OUTBOUND_GREETING_TEXT` to give outgoing calls a line of their own.
+The opening line is chosen by **who dialled**, and the two constants are named that way on
+purpose — "inbound"/"outbound" got read both ways round and swapped the greetings twice:
+
+| Who dialled | Opening line |
+| --- | --- |
+| A customer rang our Vobiz number (`agent.THEY_CALLED_US_GREETING`) | "नमस्ते! MRPscan Software में आपका स्वागत है…" — same welcome as the browser page |
+| We placed the call, from `/crm/call` or the schedule (`agent.WE_CALLED_THEM_GREETING`) | "Hello sir, मैं MRP scan से प्रीति बोल रही हूं। आपकी कुछ inquiry थी app से related…" |
+
+Override either with `GREETING_THEY_CALLED_US` / `GREETING_WE_CALLED_THEM` in `.env`.
 Everything after the opening line is the normal FAQ-bank flow. All of these are pre-warmed with
 the other fixed lines (`python gen_variants.py`), so the first word plays from `tts_cache/` the
 moment the call connects.

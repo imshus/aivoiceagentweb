@@ -15,8 +15,9 @@ number — both handed to the very same CallSession engine:
 
 INBOUND: a customer dialling FROM_NUMBER lands on the same /answer webhook with
 Direction=inbound and no record of ours. We open a record for it on the spot and
-return the same Stream XML, so the agent picks up and greets them with the
-phone opening line (agent.INBOUND_GREETING_TEXT). Two things can still refuse a caller: INBOUND_ENABLED=false
+return the same Stream XML, so the agent picks up and welcomes them
+(agent.THEY_CALLED_US_GREETING); a call we placed opens with
+agent.WE_CALLED_THEM_GREETING instead. Two things can still refuse a caller: INBOUND_ENABLED=false
 (back to the old outbound-only behaviour), and MAX_CONCURRENT_CALLS — a call
 arriving when every line is busy is answered with <Hangup/> rather than dropped
 into a silent session.
@@ -50,7 +51,7 @@ from pydantic import BaseModel
 from dotenv import load_dotenv
 
 import crm                      # password gate the dial page lives behind
-from agent import CallSession, INBOUND_GREETING_TEXT, OUTBOUND_GREETING_TEXT
+from agent import CallSession, THEY_CALLED_US_GREETING, WE_CALLED_THEM_GREETING
 
 load_dotenv()
 logger = logging.getLogger("vobiz")
@@ -71,7 +72,7 @@ DIAL_TIMEOUT_SECONDS = int(os.getenv("VOBIZ_DIAL_TIMEOUT_SECONDS", "90"))
 # is one CallSession per call with nothing shared, so this is really about the
 # outside limits — Vobiz channels, Deepgram + ElevenLabs concurrency — see the
 # README "Capacity" section before raising it. The opening line each call
-# starts with is agent.OUTBOUND_GREETING_TEXT (pre-warmed with the other
+# starts with is agent.WE_CALLED_THEM_GREETING (pre-warmed with the other
 # fixed lines).
 MAX_CONCURRENT_CALLS = int(os.getenv("MAX_CONCURRENT_CALLS", "10"))
 _DIAL_PARALLEL = 5          # simultaneous Vobiz REST placements within one batch
@@ -489,11 +490,9 @@ async def media_stream(ws: WebSocket):
     transport = VobizTransport(ws, rec)
     session = CallSession(transport, caller_id=rec.get("peer") or rec["to"],
                           call_uuid=rec["call_uuid"] or rec["id"])
-    # The phone greeting, per direction (agent.py). Both default to the same
-    # "मैं MRP scan से प्रीति बोल रही हूं…" line and are pre-warmed by
-    # gen_variants.py; agent.GREETING_TEXT is the BROWSER greeting and is
-    # deliberately not used on a call.
-    session.greeting = INBOUND_GREETING_TEXT if inbound else OUTBOUND_GREETING_TEXT
+    # Whoever dialled decides the opening line (agent.py). `inbound` here is
+    # the telephony sense: the CUSTOMER rang our number.
+    session.greeting = THEY_CALLED_US_GREETING if inbound else WE_CALLED_THEM_GREETING
     rec["session"] = session
     rec["state"] = "live"
 

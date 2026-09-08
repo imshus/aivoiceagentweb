@@ -191,20 +191,23 @@ _COMMON_WORDS = {
     "वो", "में", "से", "और", "तो", "भी", "न", "पर", "एक", "आप", "मैं", "हम", "इस", "उस",
 }
 # Fixed phrases (never change) — cached & pre-warmed so TTS never delays them.
-# The WELCOME line: the browser page (ui/talk.html), and outbound calls, both
-# open with it.
+# The WELCOME line — the browser page (ui/talk.html) opens with it.
 GREETING_TEXT = "नमस्ते! MRPscan Software में आपका स्वागत है। बताइए, मैं कैसे help कर सकती हूँ?"
-# INBOUND phone calls open differently: someone rang OUR number, so Preeti names
-# herself and the company instead of welcoming them to a page. Pre-warmed like
-# every other fixed line (see prewarm_tts_cache) — the audio for both lines
-# already sits in tts_cache/, so neither costs a TTS call at pick-up time.
-INBOUND_GREETING_TEXT = os.getenv(
-    "INBOUND_GREETING_TEXT",
+# The two phone openers are named after WHO DIALLED, never "inbound/outbound" —
+# those words got read both ways round and the greetings ended up swapped twice.
+#
+#   THEY_CALLED_US  = a customer rang our Vobiz number  → welcome them, same
+#                     line as the page.
+#   WE_CALLED_THEM  = we placed the call from /crm/call or the schedule → Preeti
+#                     names herself and says why she is calling.
+#
+# Both are pre-warmed (see prewarm_tts_cache) and their clips already sit in
+# tts_cache/, so neither costs a TTS call at pick-up.
+THEY_CALLED_US_GREETING = os.getenv("GREETING_THEY_CALLED_US", GREETING_TEXT)
+WE_CALLED_THEM_GREETING = os.getenv(
+    "GREETING_WE_CALLED_THEM",
     "Hello sir, मैं MRP scan से प्रीति बोल रही हूं। आपकी कुछ inquiry थी app से related, "
     "बताएं मैं आपकी क्या help कर सकती हूं?")
-# We called THEM: the same welcome line as the page. Set OUTBOUND_GREETING_TEXT
-# in .env to give outgoing calls their own opener.
-OUTBOUND_GREETING_TEXT = os.getenv("OUTBOUND_GREETING_TEXT", GREETING_TEXT)
 # Kept SHORT on purpose: the caller hears this whole line before the line drops,
 # so a long goodbye = long "why isn't it hanging up?" delay. ~1.5s of speech.
 CLOSING_TEXT = "आपके समय के लिए धन्यवाद! Call अब end कर रही हूँ, आपका दिन शुभ रहे!"
@@ -2508,8 +2511,8 @@ async def prewarm_tts_cache():
     the fingerprint stops matching (faq_variants.json regenerated, a fixed
     line edited, or the voice/speed changed) exactly ONE fresh pass runs — it
     synthesizes only what is actually new — and the manifest is rewritten."""
-    texts = list(dict.fromkeys((GREETING_TEXT, INBOUND_GREETING_TEXT,
-                                OUTBOUND_GREETING_TEXT, CLOSING_TEXT, REPEAT_LINE,
+    texts = list(dict.fromkeys((GREETING_TEXT, THEY_CALLED_US_GREETING,
+                                WE_CALLED_THEM_GREETING, CLOSING_TEXT, REPEAT_LINE,
                                 DECLINE_LINE, ASK_FALLBACK, CHAT_FALLBACK,
                                 *SMALLTALK_RESPONSES.values(),
                                 *iter_variant_texts())))
