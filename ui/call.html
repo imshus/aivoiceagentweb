@@ -62,6 +62,8 @@
   .badge.dialing { color: var(--accent); }
   .badge.answered, .badge.live { color: var(--ok); animation: blink 1.4s infinite; }
   .badge.ended { color: var(--muted); }
+  .dir { font-size: 11px; font-weight: 600; color: var(--muted); }
+  .dir.in { color: var(--accent); }
   @keyframes blink { 50% { opacity: .55; } }
   .head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 10px; }
   .num { font-size: 18px; font-weight: 650; }
@@ -85,9 +87,12 @@
   <div class="top">
     <div>
       <h1>📞 Call customers</h1>
-      <div class="sub">Outbound only. Paste one number per line — each one gets its own line with the agent.</div>
+      <div class="sub" id="sub">Paste one number per line — each one gets its own line with the agent. Incoming calls appear here too.</div>
     </div>
-    <a class="back" href="/crm">← Console</a>
+    <div>
+      <a class="back" href="/crm/schedule">⏰ Scheduled calls</a>
+      &nbsp;<a class="back" href="/crm">← Console</a>
+    </div>
   </div>
 
   <div class="panel">
@@ -129,8 +134,8 @@
   <div class="panel">
     <h2>Recent calls</h2>
     <table>
-      <thead><tr><th>Number</th><th>Status</th><th>Duration</th><th>Ended by</th></tr></thead>
-      <tbody id="recent"><tr><td colspan="4" class="empty">No calls yet</td></tr></tbody>
+      <thead><tr><th>Number</th><th>Direction</th><th>Status</th><th>Duration</th><th>Ended by</th></tr></thead>
+      <tbody id="recent"><tr><td colspan="5" class="empty">No calls yet</td></tr></tbody>
     </table>
   </div>
 </div>
@@ -157,6 +162,7 @@ async function api(path, body) {
 
 const fmtDur = s => (s == null) ? '—' : `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
 const fmtTime = t => t ? new Date(t * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
+const peer = c => c.peer || c.to;
 const stateLabel = c => ({ dialing: 'Ringing…', answered: 'Connected', live: 'On call', ended: 'Ended' })[c.state] || c.state;
 const cause = c => c.state === 'ended' ? ((c.hangup_cause || '').replace(/_/g, ' ') || '—') : '';
 
@@ -170,7 +176,7 @@ function renderLive(live) {
     const d = document.createElement('div');
     d.className = 'card' + (c.id === currentId ? ' sel' : '');
     d.innerHTML = `<div class="n"></div><div class="m"><span class="badge ${c.state}">${stateLabel(c)}</span><span>${c.elapsed != null ? fmtDur(c.elapsed) : fmtTime(c.placed_at)}</span></div>`;
-    d.querySelector('.n').textContent = c.to;
+    d.querySelector('.n').textContent = (c.direction === 'inbound' ? '↙ ' : '') + peer(c);
     d.onclick = () => { currentId = c.id; refresh(); };
     grid.appendChild(d);
   }
@@ -180,11 +186,11 @@ function renderCurrent(c) {
   const panel = $('current');
   if (!c) { panel.hidden = true; return; }
   panel.hidden = false;
-  $('curNum').textContent = c.to;
+  $('curNum').textContent = peer(c);
   $('curState').textContent = stateLabel(c);
   $('curState').className = 'badge ' + c.state;
-  const bits = [];
-  if (c.placed_at) bits.push('placed ' + fmtTime(c.placed_at));
+  const bits = [c.direction === 'inbound' ? 'incoming' : 'outgoing'];
+  if (c.placed_at) bits.push((c.direction === 'inbound' ? 'received ' : 'placed ') + fmtTime(c.placed_at));
   if (c.elapsed != null) bits.push((c.state === 'ended' ? 'lasted ' : '') + fmtDur(c.elapsed));
   if (c.state === 'ended' && c.hangup_cause) bits.push(cause(c));
   $('curMeta').textContent = bits.join(' · ');
@@ -211,12 +217,13 @@ function renderCurrent(c) {
 function renderRecent(calls) {
   const tb = $('recent');
   tb.innerHTML = '';
-  if (!calls.length) { tb.innerHTML = '<tr><td colspan="4" class="empty">No calls yet</td></tr>'; return; }
+  if (!calls.length) { tb.innerHTML = '<tr><td colspan="5" class="empty">No calls yet</td></tr>'; return; }
   for (const c of calls) {
     const tr = document.createElement('tr');
     tr.className = 'click';
-    tr.innerHTML = `<td></td><td>${stateLabel(c)}</td><td>${fmtDur(c.duration ?? c.elapsed)}</td><td>${cause(c)}</td>`;
-    tr.firstChild.textContent = c.to;
+    tr.innerHTML = `<td></td><td>${c.direction === 'inbound' ? '↙ incoming' : '↗ outgoing'}</td><td>${stateLabel(c)}</td><td>${fmtDur(c.duration ?? c.elapsed)}</td><td>${cause(c)}</td>`;
+    tr.firstChild.textContent = peer(c);
+    tr.firstChild.className = c.direction === 'inbound' ? 'dir in' : 'dir';
     tr.onclick = () => { currentId = c.id; refresh(); };
     tb.appendChild(tr);
   }
@@ -233,7 +240,9 @@ async function refresh() {
   } else {
     warn.hidden = true;
     $('callBtn').disabled = false;
-    $('fromHint').textContent = data.from ? `Calls show as ${data.from}` : '';
+    $('fromHint').textContent = data.from
+      ? `Calls show as ${data.from}` + (data.inbound ? ' · incoming calls to it are answered' : ' · incoming calls are refused')
+      : '';
   }
   const calls = data.calls || [];
   const live = calls.filter(c => c.state !== 'ended');

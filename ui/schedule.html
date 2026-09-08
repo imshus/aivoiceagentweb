@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>MRPscan Software — Scheduled Calls</title>
+<style>
+  :root {
+    --bg: #0f1220; --panel: #191d33; --accent: #f4c542; --accent2: #6c8cff;
+    --user: #2a3350; --agent: #3a2f14; --text: #e8eaf2; --muted: #9aa0b4;
+    --ok: #34d17a; --bad: #ff6b6b; --line: #262b47;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+    background: radial-gradient(1200px 600px at 50% -10%, #20264a, #0f1220);
+    color: var(--text); min-height: 100vh; display: flex; flex-direction: column;
+    align-items: center; padding: 32px 16px;
+  }
+  .wrap { width: 100%; max-width: 900px; }
+  .top { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+  h1 { font-size: 20px; font-weight: 650; margin: 8px 0 2px; letter-spacing: .2px; }
+  .sub { color: var(--muted); font-size: 13px; margin-bottom: 20px; }
+  a.back { color: var(--muted); font-size: 13px; text-decoration: none; }
+  a.back:hover { color: var(--text); }
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 16px; padding: 18px; margin-bottom: 16px; }
+  .fields { display: grid; grid-template-columns: 1.2fr 1.2fr .9fr .7fr auto; gap: 10px; align-items: end; }
+  @media (max-width: 720px) { .fields { grid-template-columns: 1fr 1fr; } }
+  label { display: block; font-size: 12px; color: var(--muted); margin-bottom: 5px; }
+  input {
+    width: 100%; padding: 11px 12px; font-size: 15px; font-family: inherit;
+    background: #10132a; color: var(--text); border: 1px solid var(--line); border-radius: 12px; outline: none;
+  }
+  input:focus { border-color: var(--accent2); }
+  button {
+    padding: 12px 18px; font-size: 15px; font-weight: 600; border: none; border-radius: 12px;
+    cursor: pointer; color: #0f1220; background: var(--ok); transition: transform .1s, opacity .2s; white-space: nowrap;
+  }
+  button:hover { transform: translateY(-1px); }
+  button:disabled { opacity: .5; cursor: default; transform: none; }
+  button.ghost { background: var(--user); color: var(--text); }
+  button.tiny { padding: 6px 10px; font-size: 12px; border-radius: 9px; }
+  button.danger { background: var(--bad); color: #fff; }
+  .row { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-top: 12px; flex-wrap: wrap; }
+  .hint { color: var(--muted); font-size: 12px; }
+  .cap { font-size: 12px; color: var(--muted); }
+  .cap b { color: var(--text); }
+  .cap.full b { color: var(--bad); }
+  .err { color: var(--bad); font-size: 13px; margin: 8px 2px 0; min-height: 18px; white-space: pre-line; }
+  .info { color: var(--ok); font-size: 13px; margin: 8px 2px 0; }
+  .warn { background: #3a2f14; color: var(--accent); border-radius: 10px; padding: 10px 12px; font-size: 13px; margin-bottom: 14px; }
+  h2 { font-size: 14px; color: var(--muted); font-weight: 600; margin: 0 0 10px; display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th, td { text-align: left; padding: 9px 6px; border-bottom: 1px solid var(--line); vertical-align: middle; }
+  th { color: var(--muted); font-weight: 600; font-size: 12px; }
+  td.name { font-weight: 600; }
+  td.acts { text-align: right; white-space: nowrap; }
+  .badge { font-size: 11px; font-weight: 600; padding: 3px 9px; border-radius: 999px; background: var(--user); color: var(--muted); }
+  .badge.pending { color: var(--accent2); }
+  .badge.dialing, .badge.calling { color: var(--ok); animation: blink 1.4s infinite; }
+  .badge.failed, .badge.missed { color: var(--bad); }
+  .badge.done { color: var(--ok); }
+  @keyframes blink { 50% { opacity: .55; } }
+  .why { color: var(--bad); font-size: 11px; display: block; margin-top: 2px; }
+  .empty { color: var(--muted); font-size: 13px; text-align: center; padding: 14px 0; }
+  [hidden] { display: none !important; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <div>
+      <h1>⏰ Scheduled calls</h1>
+      <div class="sub" id="sub">Save a name, number, date and time — the agent dials them itself at that moment.</div>
+    </div>
+    <div>
+      <a class="back" href="/crm/call">📞 Call now</a>
+      &nbsp;<a class="back" href="/crm">← Console</a>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div id="warn" class="warn" hidden></div>
+    <form id="add">
+      <div class="fields">
+        <div><label for="name">Name</label><input id="name" placeholder="Ramesh Jewellers" autocomplete="off" /></div>
+        <div><label for="number">Phone number</label><input id="number" placeholder="98765 43210" autocomplete="off" required /></div>
+        <div><label for="date">Date</label><input id="date" type="date" required /></div>
+        <div><label for="time">Time</label><input id="time" type="time" required /></div>
+        <div><button type="submit" id="addBtn">Schedule</button></div>
+      </div>
+      <div class="row">
+        <div class="hint" id="tzHint"></div>
+        <div class="cap" id="cap"></div>
+      </div>
+    </form>
+    <div class="info" id="info" hidden></div>
+    <div class="err" id="err"></div>
+  </div>
+
+  <div class="panel">
+    <h2>
+      <span id="upcomingCount">Upcoming</span>
+      <button class="ghost tiny" id="clearBtn" type="button">Clear finished</button>
+    </h2>
+    <table>
+      <thead><tr><th>Name</th><th>Number</th><th>When</th><th>Status</th><th></th></tr></thead>
+      <tbody id="rows"><tr><td colspan="5" class="empty">Nothing scheduled yet</td></tr></tbody>
+    </table>
+  </div>
+</div>
+
+<script>
+"use strict";
+const API = '/crm/schedule/api';
+const $ = id => document.getElementById(id);
+let timer = null;
+
+async function api(path, body) {
+  const r = await fetch(API + path, body
+    ? { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }
+    : {});
+  if (r.status === 401) { location.href = '/crm'; throw new Error('signed out'); }
+  const data = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(data.error || ('HTTP ' + r.status));
+  return data;
+}
+
+const LABEL = { pending: 'Waiting', dialing: 'Dialing…', calling: 'On call',
+                done: 'Called', failed: 'Failed', missed: 'Missed', cancelled: 'Cancelled' };
+const fmtDur = s => (s == null) ? '' : `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+
+function renderRows(rows) {
+  const tb = $('rows');
+  tb.innerHTML = '';
+  if (!rows.length) { tb.innerHTML = '<tr><td colspan="5" class="empty">Nothing scheduled yet</td></tr>'; return; }
+  for (const r of rows) {
+    const tr = document.createElement('tr');
+    const nameTd = document.createElement('td'); nameTd.className = 'name'; nameTd.textContent = r.name || '—';
+    const numTd = document.createElement('td'); numTd.textContent = r.number;
+    const whenTd = document.createElement('td'); whenTd.textContent = r.local;
+    const stTd = document.createElement('td');
+    stTd.innerHTML = `<span class="badge ${r.status}">${LABEL[r.status] || r.status}</span>`;
+    if (r.status === 'done' && r.duration != null) {
+      const d = document.createElement('span'); d.className = 'why'; d.style.color = 'var(--muted)';
+      d.textContent = `lasted ${fmtDur(r.duration)}${r.hangup_cause ? ' · ' + r.hangup_cause.replace(/_/g, ' ') : ''}`;
+      stTd.appendChild(d);
+    } else if (r.last_error) {
+      const d = document.createElement('span'); d.className = 'why'; d.textContent = r.last_error;
+      stTd.appendChild(d);
+    }
+    const acts = document.createElement('td'); acts.className = 'acts';
+    if (r.status === 'pending') {
+      acts.appendChild(btn('Call now', 'ghost tiny', () => act('/run_now', r.id)));
+      acts.appendChild(btn('Cancel', 'ghost tiny', () => act('/cancel', r.id)));
+    } else if (r.status === 'calling' || r.status === 'dialing') {
+      const a = document.createElement('a'); a.className = 'back'; a.href = '/crm/call'; a.textContent = 'Open board →';
+      acts.appendChild(a);
+    } else {
+      acts.appendChild(btn('Delete', 'ghost tiny', () => act('/delete', r.id)));
+    }
+    tr.append(nameTd, numTd, whenTd, stTd, acts);
+    tb.appendChild(tr);
+  }
+}
+
+function btn(text, cls, onclick) {
+  const b = document.createElement('button');
+  b.type = 'button'; b.className = cls; b.textContent = text;
+  b.style.marginLeft = '6px';
+  b.onclick = async () => { b.disabled = true; try { await onclick(); } finally { b.disabled = false; } };
+  return b;
+}
+
+async function act(path, id) {
+  $('err').textContent = '';
+  try { await api(path, { id }); await refresh(); }
+  catch (e) { $('err').textContent = e.message; }
+}
+
+async function refresh() {
+  let data;
+  try { data = await api('/list'); }
+  catch (e) { $('err').textContent = e.message; clearTimeout(timer); timer = setTimeout(refresh, 10000); return; }
+  const warn = $('warn');
+  const problems = [];
+  if (data.missing && data.missing.length)
+    problems.push('Calling is not configured — set ' + data.missing.join(', ') + ' in .env and restart.');
+  if (!data.running)
+    problems.push('The scheduler is not running — nothing will be dialled automatically.');
+  warn.hidden = problems.length === 0;
+  warn.textContent = problems.join(' ');
+  $('addBtn').disabled = !!(data.missing && data.missing.length);
+
+  $('tzHint').textContent = `Times are ${data.tz} · server clock ${data.now}`;
+  const cap = $('cap');
+  cap.innerHTML = `<b>${data.pending}</b> waiting · ${data.active} of ${data.limit} lines in use`;
+  cap.className = 'cap' + (data.active >= data.limit ? ' full' : '');
+  const rows = data.rows || [];
+  $('upcomingCount').textContent = rows.length ? `${rows.length} scheduled` : 'Upcoming';
+  renderRows(rows);
+  clearTimeout(timer);
+  timer = setTimeout(refresh, data.live ? 2000 : 15000);
+}
+
+$('add').addEventListener('submit', async ev => {
+  ev.preventDefault();
+  $('err').textContent = ''; $('info').hidden = true;
+  const body = { name: $('name').value.trim(), number: $('number').value.trim(),
+                 date: $('date').value, time: $('time').value };
+  if (!body.number) return;
+  $('addBtn').disabled = true;
+  try {
+    const res = await api('/add', body);
+    const r = res.added[0];
+    $('info').hidden = false;
+    $('info').textContent = `${r.name || r.number} will be called on ${r.local} (${r.tz}).`;
+    $('name').value = ''; $('number').value = '';
+    await refresh();
+  } catch (e) {
+    $('err').textContent = e.message;
+  } finally {
+    $('addBtn').disabled = false;
+  }
+});
+
+$('clearBtn').addEventListener('click', async () => {
+  if (!confirm('Delete every call that already happened, failed or was cancelled?')) return;
+  await act('/clear_done', '');
+});
+
+// Default the form to the next round half hour, so a quick test is one click away.
+(function seed() {
+  const d = new Date(Date.now() + 30 * 60 * 1000);
+  d.setSeconds(0, 0);
+  const p = n => String(n).padStart(2, '0');
+  $('date').value = `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+  $('time').value = `${p(d.getHours())}:${p(d.getMinutes())}`;
+})();
+
+refresh();
+</script>
+</body>
+</html>

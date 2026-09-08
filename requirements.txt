@@ -8,3 +8,4 @@ openai>=2.0           # brain; >=2.0 for max_completion_tokens + reasoning_effor
 pymongo>=4.10
 python-dotenv>=1.0
 openpyxl>=3.1         # /crm: question-bank Excel export
+tzdata>=2024.1       # zoneinfo needs it on Windows (SCHEDULE_TIMEZONE)

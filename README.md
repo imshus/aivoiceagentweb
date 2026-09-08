@@ -105,7 +105,7 @@ db.conversations.find({needs_attention: true}, {unresolved: 1}).sort({timestamp:
 
 Password: `CRM_PASSWORD` (default `admin@12321`), 12-hour cookie session.
 
-## Outbound calls (Vobiz)
+## Phone calls (Vobiz) — outbound **and** inbound
 
 `/crm/call` (same password as the CRM) dials a customer's number through Vobiz and hands the
 answered call to the same `CallSession` engine the browser page uses — greeting, FAQ router,
@@ -116,9 +116,15 @@ Flow: `POST /crm/call/api/dial` → Vobiz REST `Call/` → Vobiz hits `POST /ans
 customer picks up → we return `<Stream bidirectional>` XML pointing at `wss://…/vobiz/ws` →
 μ-law frames flow both ways over that socket → `POST /hangup` closes the record.
 
-**Inbound is refused.** `/answer` only returns the Stream XML for a call this process placed
-(matched by RequestUUID / CallUUID / the number it dialled); anything else — including someone
-calling the Vobiz number — is answered with `<Hangup/>`.
+**Inbound works the same way.** A customer dialling `FROM_NUMBER` reaches `/answer` with
+`Direction=inbound` and no record of ours; we open one on the spot and return the same Stream
+XML, so the agent picks up and runs the identical engine. Point the Vobiz number's answer URL at
+`PUBLIC_URL/answer` and its hangup URL at `PUBLIC_URL/hangup` in the Vobiz console.
+
+Two things still refuse a caller: `INBOUND_ENABLED=false` (back to outbound-only), and
+`MAX_CONCURRENT_CALLS` — a call arriving when every line is busy gets `<Hangup/>` rather than an
+answered-but-unserved session. Both directions share that ceiling and both appear on the
+`/crm/call` board, marked ↙ incoming / ↗ outgoing, keyed on the customer's number (`peer`).
 
 ```
 # .env
@@ -127,14 +133,20 @@ VOBIZ_AUTH_TOKEN=…
 FROM_NUMBER=+91…           # your Vobiz number, E.164
 PUBLIC_URL=https://…       # the server's public https name (AWS: see "Run on AWS"), no trailing slash
 DEFAULT_COUNTRY_CODE=91    # optional: prefix for bare 10-digit numbers
-OUTBOUND_GREETING_TEXT=…   # optional: the opening line when they pick up (default: "Hello sir, मैं MRP scan से प्रीति बोल रही हूं…")
+INBOUND_ENABLED=true       # optional: answer calls made to FROM_NUMBER (default true)
+CALL_GREETING_TEXT=…       # optional: the opening line on the PHONE, both directions
+INBOUND_GREETING_TEXT=…    # optional: override it for incoming calls only
+OUTBOUND_GREETING_TEXT=…   # optional: override it for outgoing calls only
 ```
 
-The opening line is different from the browser/helpline greeting because *we* called *them*:
-by default the agent introduces herself as Preeti from MRP scan calling about their app
-inquiry and asks how she can help. Everything after that is the normal FAQ-bank flow. The
-line is pre-warmed with the other fixed lines (`python gen_variants.py`), so the first word
-plays from `tts_cache/` the moment the customer picks up.
+The phone opening line is different from the browser one: on a call the agent introduces
+herself as Preeti from MRP scan and asks how she can help
+(`agent.CALL_GREETING_TEXT`, used for incoming and outgoing alike), while the browser page keeps
+the "नमस्ते! MRPscan Software में आपका स्वागत है" welcome (`agent.GREETING_TEXT`) — that is not a
+phone call. Set `INBOUND_GREETING_TEXT` / `OUTBOUND_GREETING_TEXT` to split the two directions.
+Everything after the opening line is the normal FAQ-bank flow. All of these are pre-warmed with
+the other fixed lines (`python gen_variants.py`), so the first word plays from `tts_cache/` the
+moment the call connects.
 
 ### Capacity — 30 calls at once
 
@@ -153,7 +165,7 @@ So the server itself is not the limit at 30. What has to be sized *outside* this
 
 | Resource | Limit to check | Knob here |
 | --- | --- | --- |
-| Vobiz account | concurrent channels ≥ 30, and the REST rate for placing a batch | dialing places 5 at a time |
+| Vobiz account | concurrent channels ≥ 30 (incoming calls use the same channels), and the REST rate for placing a batch | dialing places 5 at a time |
 | Deepgram | streaming concurrency (Pay-as-you-go allows 50) | — |
 | ElevenLabs | per-plan concurrency; `flash_v2_5` gets double — **Creator = 10** (Pro 20, Scale/Business 30). Bank answers play from `tts_cache/` and take no slot — only live text (CLARIFY / CHAT / new wording) does, so 30 calls rarely need 10 at once | `ELEVENLABS_MAX_CONCURRENT` (default 10 = Creator): a reply over it waits for a slot instead of 429-ing; if `ElevenLabs TTS error 429` still shows in the logs, lower it to 8 (the two pooled sockets may count); `TTS_POOL_SIZE` (default 2) |
 | OpenAI | RPM / TPM on the Luna tier — each turn is one classifier + one render call | — |
@@ -171,12 +183,47 @@ our side (the agent's HANGUP intent or the console button) sends stop/hangup on 
 then `DELETE …/Call/<uuid>/`, because `keepCallAlive="true"` would otherwise leave the customer
 on a silent line.
 
+## Scheduled calls (`/crm/schedule`)
+
+Store **who** (name), **which number** and **when** (date + time), and the server dials them
+itself at that moment — the same Vobiz path `/crm/call` uses, so the answered call runs on the
+same engine.
+
+Rows live in MongoDB (`scheduled_calls`, same `MONGODB_URI` / `MONGODB_DB` as the transcripts).
+A ticker inside the process (`scheduled_calls.py`, started from `main.py`'s lifespan) wakes every
+`SCHEDULE_TICK_SECONDS`, claims what is due with an atomic `find_one_and_update` (so a row can
+never be dialled twice), and hands each number to `vobiz_calls.place_call()` — never exceeding
+`MAX_CONCURRENT_CALLS`, exactly like the dial console.
+
+Status flow: `pending → dialing → calling → done`. A REST refusal retries
+`SCHEDULE_MAX_ATTEMPTS` times `SCHEDULE_RETRY_MINUTES` apart, then `failed`. Rows whose moment
+passed while the server was down (more than `SCHEDULE_GRACE_MINUTES` ago) are marked **missed**
+rather than dialled late — nobody wants yesterday's 3pm list ringing this morning. The board also
+has **Call now** (dial a pending row immediately), **Cancel** and **Clear finished**.
+
+Times are typed in `SCHEDULE_TIMEZONE` and stored in UTC, so the dial time is correct even if the
+server runs in another zone.
+
+```
+# .env
+SCHEDULE_TIMEZONE=Asia/Kolkata   # the zone your date/time is read in
+SCHEDULE_TICK_SECONDS=20         # how often the clock is checked
+SCHEDULE_GRACE_MINUTES=60        # older-than-this due rows are missed, not dialled
+SCHEDULE_MAX_ATTEMPTS=3          # placement retries before giving up
+SCHEDULE_RETRY_MINUTES=2         # gap between those retries
+```
+
+On Windows `zoneinfo` needs the `tzdata` package (in `requirements.txt`); without it the
+scheduler falls back to UTC and says so in the log.
+
 ## Files
 
-`main.py` — **run this one.** Serves the browser UI, the `/ws` audio WebSocket, `/crm`, `/crm/unavailable`, `/crm/call` and the Vobiz webhooks.
+`main.py` — **run this one.** Serves the browser UI, the `/ws` audio WebSocket, `/crm`, `/crm/unavailable`, `/crm/call`, `/crm/schedule` and the Vobiz webhooks.
 `ui/talk.html` — the single-page mic interface (capture, μ-law codec, playback, transcript).
-`ui/call.html` — the outbound dial page (number, live status + transcript, hang up, recent calls).
-`vobiz_calls.py` — outbound calling over Vobiz: dial API, `/answer` + `/hangup` webhooks, `/vobiz/ws` media socket → `CallSession`. Refuses inbound.
+`ui/call.html` — the call board (dial numbers, incoming calls, live status + transcript, hang up, recent calls).
+`scheduled_calls.py` — calls planned ahead: Mongo-backed rows + the in-process ticker that dials each one when it comes due.
+`ui/schedule.html` — the schedule board (name, number, date, time, status, call-now/cancel).
+`vobiz_calls.py` — phone calls over Vobiz, both directions: dial API, `/answer` + `/hangup` webhooks, `/vobiz/ws` media socket → `CallSession`.
 `agent.py` — the engine: STT, turn-taking, barge-in/echo, TTS streaming, attention flags, Mongo.
 `faq_router.py` — deterministic brain: `CANONICAL_ANSWERS` bank + classifier + renderer + bank writer.
 `crm.py` — the voice CRM: Deepgram → OpenAI → bank → pre-warm → Excel, behind the password.

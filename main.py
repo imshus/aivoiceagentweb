@@ -49,6 +49,12 @@ crm_router.include_router(unavailable_router)
 import vobiz_calls
 
 crm_router.include_router(vobiz_calls.console_router)
+# Calls planned ahead of time: name + number + date + time stored in Mongo, and
+# a ticker in-process that dials each one when its moment arrives
+# (scheduled_calls.py). Board at /crm/schedule, same password.
+import scheduled_calls
+
+crm_router.include_router(scheduled_calls.router)
 
 load_dotenv()
 
@@ -122,8 +128,11 @@ async def lifespan(app: FastAPI):
     # Only the live LLM + TTS socket pools are warmed here, since those are
     # per-process (DNS/TLS handshakes) and cannot be prepared offline.
     asyncio.create_task(prewarm_connections())
+    # The clock watcher for /crm/schedule — dials the rows that come due.
+    scheduled_calls.start()
     yield
     logger.info("🛑 Shutting down")
+    await scheduled_calls.shutdown() # stop the clock before dropping the lines
     await vobiz_calls.shutdown()     # drop any phone call still on the line
     await agent_shutdown()
 

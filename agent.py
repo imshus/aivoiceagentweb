@@ -192,13 +192,18 @@ _COMMON_WORDS = {
 }
 # Fixed phrases (never change) — cached & pre-warmed so TTS never delays them.
 GREETING_TEXT = "नमस्ते! MRPscan Software में आपका स्वागत है। बताइए, मैं कैसे help कर सकती हूँ?"
-# Opening line for OUTBOUND calls (vobiz_calls.py): we called them, so it says
-# who is calling and why instead of welcoming them. Pre-warmed like every other
-# fixed line. Override with OUTBOUND_GREETING_TEXT in .env.
-OUTBOUND_GREETING_TEXT = os.getenv(
-    "OUTBOUND_GREETING_TEXT",
+# Opening line on the PHONE (vobiz_calls.py) — inbound and outbound both. On a
+# call Preeti names herself and the company; GREETING_TEXT above stays the
+# BROWSER greeting (ui/talk.html), which is never a phone call. Pre-warmed like
+# every other fixed line. Override the phone line with CALL_GREETING_TEXT, or
+# give each direction its own with INBOUND_GREETING_TEXT /
+# OUTBOUND_GREETING_TEXT in .env.
+CALL_GREETING_TEXT = os.getenv(
+    "CALL_GREETING_TEXT",
     "Hello sir, मैं MRP scan से प्रीति बोल रही हूं। आपकी कुछ inquiry थी app से related, "
     "बताएं मैं आपकी क्या help कर सकती हूं?")
+INBOUND_GREETING_TEXT = os.getenv("INBOUND_GREETING_TEXT", CALL_GREETING_TEXT)
+OUTBOUND_GREETING_TEXT = os.getenv("OUTBOUND_GREETING_TEXT", CALL_GREETING_TEXT)
 # Kept SHORT on purpose: the caller hears this whole line before the line drops,
 # so a long goodbye = long "why isn't it hanging up?" delay. ~1.5s of speech.
 CLOSING_TEXT = "आपके समय के लिए धन्यवाद! Call अब end कर रही हूँ, आपका दिन शुभ रहे!"
@@ -2495,7 +2500,8 @@ async def prewarm_tts_cache():
     the fingerprint stops matching (faq_variants.json regenerated, a fixed
     line edited, or the voice/speed changed) exactly ONE fresh pass runs — it
     synthesizes only what is actually new — and the manifest is rewritten."""
-    texts = list(dict.fromkeys((GREETING_TEXT, OUTBOUND_GREETING_TEXT, CLOSING_TEXT, REPEAT_LINE,
+    texts = list(dict.fromkeys((GREETING_TEXT, INBOUND_GREETING_TEXT,
+                                OUTBOUND_GREETING_TEXT, CLOSING_TEXT, REPEAT_LINE,
                                 DECLINE_LINE, ASK_FALLBACK, CHAT_FALLBACK,
                                 *SMALLTALK_RESPONSES.values(),
                                 *iter_variant_texts())))
