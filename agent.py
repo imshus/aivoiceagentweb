@@ -617,12 +617,12 @@ MULAW_CONTENT_TYPE = "audio/x-mulaw"
 # the moment the caller said e.g. "बस इतना बताओ" or "thanks, ye batao…".
 # FIX: the second pattern was corrupted — the string "Ok thanks for the call"
 # had been pasted INSIDE it, splitting "फ़ोन रखो" across two literals. After
-# implicit concatenation, the bare fragment "फ़ो" became a standalone
+# implicit concatenation, the bare fragment "फ़ो" became a standalonethank you
 # alternative, so ANY word containing it (फ़ोन, फ़ोटो, इंफ़ो…) hung up the call
 # mid-conversation. Repaired below; "ok thanks for the call" is now a proper
 # word-bounded alternative in the English pattern.
 HANGUP_PATTERNS = [
-    r"\b(cut the call|hang up|hangup|goodbye|good bye|bye bye|ok bye|okay bye|stop calling|not interested|i am not interested|i don'?t want|no thanks|maybe later|that'?s all|that is all|nothing else|we are done|i am done|end the call|end call|ok thanks for the call | ok thank you | thank you)\b",
+    r"\b(cut the call|hang up|hangup|goodbye|good bye|bye bye|ok bye|okay bye|stop calling|not interested|i am not interested|i don'?t want|no thanks|maybe later|that'?s all|that is all|nothing else|we are done|i am done|end the call|end call|ok thanks for the call|ok thank you)\b",
     # FIX (live call 2026-07-04): "Ok, thanks for the call." and "Call cut हो
     # भाई" were answered with small talk instead of the closing — the caller
     # had to cut the call themselves. Hinglish word order ("call cut", "call
@@ -1274,8 +1274,28 @@ async def stream_tts_ws(
                 break
     finally:
         _tts_slot_release()
-        if feeder and not feeder.done():
-            feeder.cancel()
+        if feeder:
+            if not feeder.done():
+                feeder.cancel()
+            # cancel() only REQUESTS cancellation — it does not wait. Returning
+            # here while feed() is still suspended inside token_iter.__anext__()
+            # leaves that generator flagged as RUNNING with nobody driving it.
+            # When the loop later finalizes it we get, from the finalizer where
+            # no except of ours can catch it:
+            #     RuntimeError: aclose(): asynchronous generator is already running
+            # which takes the process down. So wait for the cancellation to
+            # actually land; feed() stops at its next await, so this is instant.
+            # The timeout is only so a wedged socket send cannot hang teardown.
+            try:
+                await asyncio.wait({feeder}, timeout=2)
+            except Exception:
+                pass
+        # Nothing is iterating it now, so close it here rather than leaving it
+        # to garbage collection — this also tears down the LLM stream behind it.
+        try:
+            await token_iter.aclose()
+        except Exception:
+            pass
         try:
             await ws.close()
         except Exception:
