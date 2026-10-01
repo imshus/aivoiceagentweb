@@ -54,7 +54,7 @@ logger = logging.getLogger("faq_router")
 
 # ── The brain: OpenAI, end to end ───────────────────────────────────────────
 # Both jobs on the call path — classify the turn, then reword the one approved
-# answer — run on GPT-5.6 Luna, the cheap/low-latency tier of the 5.6 family.
+# answer — run on GPT-6 Luna, the cheap/low-latency tier of the GPT-6 family.
 # Neither job needs a frontier model: the classifier only picks an entry out of
 # an approved bank, and the renderer only rewords text that is already signed
 # off, so the money and the milliseconds both go the wrong way on a bigger tier.
@@ -62,8 +62,8 @@ logger = logging.getLogger("faq_router")
 # OpenAI-compatible host stays a one-line .env change; leave it unset for
 # OpenAI's own endpoint.
 OPENAI_BASE_URL = os.getenv("OPENAI_BASE_URL") or None
-CLASSIFIER_MODEL = os.getenv("OPENAI_CLASSIFIER_MODEL", "gpt-5.6-luna")
-RENDER_MODEL = os.getenv("OPENAI_RENDER_MODEL", "gpt-5.6-luna")
+CLASSIFIER_MODEL = os.getenv("OPENAI_CLASSIFIER_MODEL", "gpt-6-luna")
+RENDER_MODEL = os.getenv("OPENAI_RENDER_MODEL", "gpt-6-luna")
 
 # ── Latency tiers (all default ON, all safe to disable) ──────────────────────
 # FAQ_LOCAL_MATCH: Tier-0 keyword matcher — unmistakable single-entry questions

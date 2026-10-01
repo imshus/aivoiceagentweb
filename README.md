@@ -1,7 +1,7 @@
 # MRPscan Software — AI Voice Agent
 
 Hinglish voice agent for the jewelry tag-scanning / MRP software.
-**Browser mic → Deepgram STT → deterministic FAQ router (OpenAI GPT-5.6 Luna) → ElevenLabs TTS → MongoDB.**
+**Browser mic → Deepgram STT → deterministic FAQ router (OpenAI GPT-6 Luna) → ElevenLabs TTS → MongoDB.**
 You talk to the agent from a web page using your laptop microphone, or have it **call a
 customer's phone** over Vobiz (outbound only — it never answers incoming calls).
 
@@ -32,9 +32,9 @@ live transcript is shown on the page.
 | Job | Model | Where |
 | --- | --- | --- |
 | Speech-to-text, live call | Deepgram `flux-general-multi` | `agent.py` |
-| Classifier + renderer (the call path) | **OpenAI `gpt-5.6-luna`**, reasoning off | `faq_router.py` |
+| Classifier + renderer (the call path) | **OpenAI `gpt-6-luna`**, reasoning off | `faq_router.py` |
 | Speech-to-text, CRM recordings | Deepgram `nova-3` (pre-recorded) | `crm.py` |
-| Dictation → clean Q&A | **OpenAI `gpt-5.6-luna`**, reasoning off | `crm.py` |
+| Dictation → clean Q&A | **OpenAI `gpt-6-luna`**, reasoning off | `crm.py` |
 | Text-to-speech | ElevenLabs `eleven_flash_v2_5` | `agent.py` |
 
 Every LLM call in the app is OpenAI, on one key (`OPENAI_API_KEY`) and one host

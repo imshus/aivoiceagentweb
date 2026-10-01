@@ -54,7 +54,7 @@ ELEVENLABS_VOICE_ID = os.getenv("ELEVENLABS_VOICE_ID")
 # biggest cut to time-to-first-audio. Override with ELEVENLABS_MODEL in .env
 # if you want max quality over speed (eleven_multilingual_v2 / eleven_turbo_v2_5).
 ELEVENLABS_MODEL = os.getenv("ELEVENLABS_MODEL", "eleven_flash_v2_5")
-# The brain model, shared with faq_router's renderer: OpenAI GPT-5.6 Luna, with
+# The brain model, shared with faq_router's renderer: OpenAI GPT-6 Luna, with
 # reasoning OFF so time-to-first-token stays phone-fast. Set it (and the
 # classifier) in .env — see faq_router for the exact variable names.
 # Seconds of silence (after the last finalized word) before we treat the user
@@ -694,7 +694,7 @@ logger = logging.getLogger("agent")
 # the pre-warm below reuse it, so there is one warmed HTTP/DNS path and one
 # place that configures the brain.
 import faq_router as _fr
-llm_client = _fr._client          # OpenAI (GPT-5.6 Luna by default)
+llm_client = _fr._client          # OpenAI (GPT-6 Luna by default)
 LLM_MODEL = _fr.RENDER_MODEL
 llm_params = _fr.llm_params       # max_completion_tokens + reasoning_effort
 
