@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- The agent pages' navy and gold (ui/talk.html :root). -->
+    <color name="page">#0F1220</color>
+    <color name="text">#E8EAF2</color>
+    <color name="muted">#9AA0B4</color>
+    <color name="accent">#F4C542</color>
+    <color name="ic_launcher_background">#0F1220</color>
+</resources>

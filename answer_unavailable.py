@@ -27,7 +27,7 @@ A flagged question can also be RESOLVED straight from here, two ways:
 Either way the flagged item leaves the queue once the bank write succeeds.
 
 It is NOT a separate server: this router is nested INSIDE the CRM router
-(main.py mounts it at /crm/unavailable), so it sits behind the same password and
+(main.py mounts it at /crm/unavailable) and
 shares agent.py's Mongo client — the SAME connection and the same MONGODB_URI /
 MONGODB_DB credentials. Only the `unresolved` array is ever touched; transcripts
 are never modified.
@@ -39,13 +39,13 @@ import os
 import logging
 
 from fastapi import APIRouter, Request
-from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, JSONResponse
 from pydantic import BaseModel
 from bson import ObjectId
 from bson.errors import InvalidId
 
 import agent  # same process, same Mongo client, same credentials
-import crm     # the password gate this console lives behind
+import crm     # the bank writer and clean-up this console reuses
 import faq_router as fr  # the question bank a flagged question gets folded into
 
 logger = logging.getLogger("answers")
@@ -148,8 +148,6 @@ class ItemRef(BaseModel):
 
 @router.get("/api/items")
 async def list_items(request: Request, type: str = "", q: str = ""):
-    if not crm._authed(request):
-        return JSONResponse({"error": "not signed in"}, status_code=401)
     if not _connected():
         return JSONResponse({"error": "MONGODB_URI not set"}, status_code=503)
     # One DB pass: stats always describe EVERYTHING, the list is the filtered view.
@@ -193,8 +191,6 @@ async def _pull_item(body: ItemRef) -> tuple[bool, str]:
 @router.post("/api/delete")
 async def delete_item(request: Request, body: ItemRef):
     """Throw one flagged question away without answering it."""
-    if not crm._authed(request):
-        return JSONResponse({"error": "not signed in"}, status_code=401)
     if not _connected():
         return JSONResponse({"error": "MONGODB_URI not set"}, status_code=503)
     ok, err = await _pull_item(body)
@@ -221,8 +217,6 @@ async def edit_item(request: Request, body: EditIn):
     element changes; the transcript, the spoken reply and the flag type are
     left alone.
     """
-    if not crm._authed(request):
-        return JSONResponse({"error": "not signed in"}, status_code=401)
     if not _connected():
         return JSONResponse({"error": "MONGODB_URI not set"}, status_code=503)
     text = (body.new_question or "").strip()
@@ -254,8 +248,6 @@ async def edit_item(request: Request, body: EditIn):
 async def bank(request: Request):
     """Every question in the bank - the list you pick from on the
     'existing question' tab."""
-    if not crm._authed(request):
-        return JSONResponse({"error": "not signed in"}, status_code=401)
     items = [{"qid": qid,
               "question": fr.canon_q(entry),
               "subquestions": fr.all_q(entry)[1:],
@@ -287,8 +279,6 @@ async def resolve_main(request: Request, body: ResolveMainIn):
     flagged item is pulled from Mongo only after the bank write succeeds, so a
     failure here leaves the queue exactly as it was.
     """
-    if not crm._authed(request):
-        return JSONResponse({"error": "not signed in"}, status_code=401)
     if not _connected():
         return JSONResponse({"error": "MONGODB_URI not set"}, status_code=503)
     question = (body.question or "").strip()
@@ -349,8 +339,6 @@ async def resolve_sub(request: Request, body: ResolveSubIn):
     phrasings grows - so its approved wording stays valid and no audio is
     re-rendered or re-billed.
     """
-    if not crm._authed(request):
-        return JSONResponse({"error": "not signed in"}, status_code=401)
     if not _connected():
         return JSONResponse({"error": "MONGODB_URI not set"}, status_code=503)
     question = (body.question or "").strip()
@@ -627,7 +615,7 @@ PAGE = """<!doctype html>
  </div>
 </div>
 <script>
-// The page is served under /crm/unavailable, inside the password-protected CRM,
+// The page is served under /crm/unavailable, inside the CRM,
 // so every call is made relative to that prefix (trailing slash or not).
 const API = '/crm/unavailable';
 const esc = s => (s||"").replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
@@ -886,6 +874,4 @@ load();
 @router.get("")          # /crm/unavailable
 @router.get("/")         # /crm/unavailable/
 async def index(request: Request):
-    if not crm._authed(request):
-        return RedirectResponse("/crm", status_code=303)
     return HTMLResponse(PAGE)

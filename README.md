@@ -10,7 +10,7 @@ One server, four pages:
 | URL | What it is |
 | --- | --- |
 | `/` | the caller-facing mic page — talk to the agent |
-| `/crm` | **password-protected console.** Record new questions and answers by voice, pre-warm their spoken wording, download the bank as Excel |
+| `/crm` | **the console** (no sign-in). Record new questions and answers by voice, pre-warm their spoken wording, download the bank as Excel |
 | `/crm/unavailable` | inside that console: every turn the agent could not answer, could not speak, or answered with nothing |
 | `/crm/call` | inside that console: dial a customer's number and the agent takes the call. **Outbound only** |
 
@@ -103,11 +103,11 @@ db.conversations.find({needs_attention: true}, {unresolved: 1}).sort({timestamp:
 6. **Download Excel** exports the bank: one row per question with its sub-questions on
    their own rows, answer and spoken wording alongside.
 
-Password: `CRM_PASSWORD` (default `admin@12321`), 12-hour cookie session.
+There is no sign-in: anyone who can reach `/crm` can use the console and its pages.
 
 ## Phone calls (Vobiz) — outbound **and** inbound
 
-`/crm/call` (same password as the CRM) dials a customer's number through Vobiz and hands the
+`/crm/call` (in the console) dials a customer's number through Vobiz and hands the
 answered call to the same `CallSession` engine the browser page uses — greeting, FAQ router,
 barge-in, transcript save, all unchanged. The page shows ringing / connected / ended state, the
 live transcript, a hang-up button and the last 20 calls.
@@ -229,7 +229,7 @@ scheduler falls back to UTC and says so in the log.
 `vobiz_calls.py` — phone calls over Vobiz, both directions: dial API, `/answer` + `/hangup` webhooks, `/vobiz/ws` media socket → `CallSession`.
 `agent.py` — the engine: STT, turn-taking, barge-in/echo, TTS streaming, attention flags, Mongo.
 `faq_router.py` — deterministic brain: `CANONICAL_ANSWERS` bank + classifier + renderer + bank writer.
-`crm.py` — the voice CRM: Deepgram → OpenAI → bank → pre-warm → Excel, behind the password.
+`crm.py` — the voice CRM: Deepgram → OpenAI → bank → pre-warm → Excel.
 `answer_unavailable.py` — the flagged-calls console, nested inside the CRM.
 `gen_variants.py` — offline bulk pre-render of every answer's wording + audio.
 `faq_variants.json` — the approved Hinglish wordings (written by both `gen_variants.py` and the CRM).
@@ -241,8 +241,7 @@ scheduler falls back to UTC and says so in the log.
 python -m venv .venv && source .venv/bin/activate   # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
 # .env: DEEPGRAM_API_KEY, OPENAI_API_KEY, ELEVENLABS_API_KEY, ELEVENLABS_VOICE_ID,
-#       MONGODB_URI (optional),
-#       CRM_PASSWORD (optional — defaults to admin@12321)
+#       MONGODB_URI (optional)
 python main.py               # or: uvicorn main:app --host 0.0.0.0 --port 5000
 ```
 
@@ -267,7 +266,7 @@ resolves to that IP with no DNS setup at all.
    # Caddy: https://caddyserver.com/docs/install#debian-ubuntu-raspbian (apt repo)
    git clone https://github.com/imshus/aivoiceagentweb.git && cd aivoiceagentweb
    python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
-   nano .env      # keys, FROM_NUMBER, CRM_PASSWORD, and PUBLIC_URL=https://<your name>
+   nano .env      # keys, FROM_NUMBER and PUBLIC_URL=https://<your name>
    ```
 3. **Caddy**: copy `deploy/Caddyfile` to `/etc/caddy/Caddyfile`, put your name in place of
    `agent.example.com`, then `sudo systemctl reload caddy`. Caddy fetches and renews the
@@ -281,6 +280,29 @@ Updating later: `git pull && sudo systemctl restart mrpscan-agent` — the pre-w
 `tts_cache/` come with the pull, so nothing is re-synthesized on the server. One worker only
 (see Capacity); the browser pages and the CRM work over the same HTTPS name.
 
+## Android app (`android/`)
+
+The question-bank console as a phone app, **MRPscan Agent** (`com.itsolution.mrpscanagent`):
+it opens `SERVER_URL/crm` and nothing else. The page is not copied into the app — it opens the
+server the way a browser does, so a server deploy updates the app too — and the APK holds no
+keys. The app supplies what a browser would: the microphone for the Record buttons, the
+downloads (saved to Downloads) and alert/confirm dialogs. The app's console has no Call
+button: `crm.py` leaves it out for the app's user agent (`MRPscanAgentApp/<version>`), and the
+website keeps it.
+
+`android/.env` sets `APP_NAME` and `SERVER_URL` (`https://voice.amitaash.com` — it must be
+https, or the phone will not give the page the microphone). Build on Windows:
+
+```bash
+cd android
+JAVA_HOME="C:/Program Files/Android/Android Studio/jbr" ./gradlew assembleRelease
+# → app/build/outputs/apk/release/app-release.apk
+```
+
+It is signed with `android/app/keystore/mrpscanagent.jks`, whose passwords are in
+`android/keystore.properties`. Both are git-ignored: keep a copy, because every update has to
+be signed with the same key. Raise `versionCode` in `android/app/build.gradle` for each new APK.
+
 ## Fixes applied to agent.py (marked `# FIX:` / `SILENT-REPLY FIX` in code)
 
 1. **Hangup regex corruption** — "Ok thanks for the call" had been pasted inside the Hindi pattern, splitting `फ़ोन रखो` and making bare `फ़ो` a standalone alternative, so any word containing it (फ़ोन, फ़ोटो, इंफ़ो) instantly ended the call. Repaired; the English phrase is now a proper `\b`-bounded alternative.
@@ -291,4 +313,4 @@ Updating later: `git pull && sudo systemctl restart mrpscan-agent` — the pre-w
 
 ## Security
 
-Never commit `.env`. Rotate every credential that was ever pasted into a chat, repo, or screenshot (Deepgram, OpenAI, ElevenLabs) and replace the guessable MongoDB user password with a strong one. Change `CRM_PASSWORD` from the default before exposing the server beyond localhost — the CRM writes to your source files.
+Never commit `.env`. Rotate every credential that was ever pasted into a chat, repo, or screenshot (Deepgram, OpenAI, ElevenLabs) and replace the guessable MongoDB user password with a strong one. The console at `/crm` has no sign-in, by choice: anyone who reaches it can edit the question bank (it writes to your source files), place Vobiz calls, and use the buttons that spend Deepgram, OpenAI and ElevenLabs credit.

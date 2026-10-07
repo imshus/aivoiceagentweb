@@ -35,15 +35,15 @@ from agent import (
     prewarm_connections,
     shutdown as agent_shutdown,
 )
-# One password-protected admin console at /crm: record new questions/answers
+# One admin console at /crm, no sign-in: record new questions/answers
 # into the agent's bank (crm.py) and review the ones it could not answer
 # (answer_unavailable.py, nested at /crm/unavailable).
 from crm import router as crm_router
 from answer_unavailable import router as unavailable_router
 
 crm_router.include_router(unavailable_router)
-# Outbound phone calls over Vobiz (vobiz_calls.py). The dial page nests under
-# the same password at /crm/call; /answer, /hangup, /stream-status and the
+# Outbound phone calls over Vobiz (vobiz_calls.py). The dial page nests in the
+# console at /crm/call; /answer, /hangup, /stream-status and the
 # /vobiz/ws media socket must be reachable by Vobiz at PUBLIC_URL. Inbound
 # calls are refused there by design.
 import vobiz_calls
@@ -51,7 +51,7 @@ import vobiz_calls
 crm_router.include_router(vobiz_calls.console_router)
 # Calls planned ahead of time: name + number + date + time stored in Mongo, and
 # a ticker in-process that dials each one when its moment arrives
-# (scheduled_calls.py). Board at /crm/schedule, same password.
+# (scheduled_calls.py). Board at /crm/schedule.
 import scheduled_calls
 
 crm_router.include_router(scheduled_calls.router)
@@ -138,7 +138,7 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title="MRPscan Software — Browser Agent", lifespan=lifespan)
-app.include_router(crm_router)   # → /crm, /crm/unavailable, /crm/call (password-protected)
+app.include_router(crm_router)   # → /crm, /crm/unavailable, /crm/call, /crm/schedule
 app.include_router(vobiz_calls.public_router)   # → /answer /hangup /stream-status /vobiz/ws (Vobiz-facing)
 
 

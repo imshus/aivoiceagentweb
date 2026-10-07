@@ -10,3 +10,14 @@ venv/
 # Runtime artifacts
 *.log
 
+# Android app (android/): signing key and its passwords, this PC's SDK path,
+# build output, built APKs
+android/keystore.properties
+android/app/keystore/
+android/local.properties
+android/.gradle/
+android/build/
+android/app/build/
+*.apk
+*.aab
+

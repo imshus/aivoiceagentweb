@@ -1,6 +1,6 @@
 """Voice CRM — add questions to the agent's answer bank by speaking them.
 
-Mounted at /crm on the agent's own server (main.py), password-protected.
+Mounted at /crm on the agent's own server (main.py). There is no sign-in.
 
 WHAT IT DOES — one recording round trip per field:
 
@@ -22,8 +22,7 @@ WHAT IT DOES — one recording round trip per field:
 
 Keys, all from the SAME .env the agent uses: DEEPGRAM_API_KEY (speech-to-text),
 OPENAI_API_KEY (clean-up AND the Hinglish rendering, same key as the call
-path), ELEVENLABS_API_KEY (audio). Password: CRM_PASSWORD, default
-"admin@12321".
+path), ELEVENLABS_API_KEY (audio).
 
     python main.py
     #  then open  http://localhost:5000/crm
@@ -31,14 +30,12 @@ path), ELEVENLABS_API_KEY (audio). Password: CRM_PASSWORD, default
 import io
 import os
 import json
-import time
-import secrets
 import logging
 from datetime import datetime, timezone
 from urllib.parse import quote
 
 import aiohttp
-from fastapi import APIRouter, Request, UploadFile, File, Form
+from fastapi import APIRouter, Request, UploadFile, File
 from fastapi.responses import HTMLResponse, JSONResponse, Response
 from pydantic import BaseModel
 
@@ -46,10 +43,6 @@ import agent
 import faq_router as fr
 
 logger = logging.getLogger("crm")
-
-CRM_PASSWORD = os.getenv("CRM_PASSWORD", "admin@12321")
-SESSION_HOURS = float(os.getenv("CRM_SESSION_HOURS", "12"))
-COOKIE = "crm_session"
 
 DEEPGRAM_API_KEY = os.getenv("DEEPGRAM_API_KEY")
 # The live agent streams through Flux; Flux is streaming-only, so the uploaded
@@ -79,61 +72,7 @@ CRM_MODEL = os.getenv("CRM_OPENAI_MODEL", fr.RENDER_MODEL)
 CRM_REASONING_EFFORT = os.getenv("CRM_REASONING_EFFORT",
                                  fr.REASONING_EFFORT)
 
-# token -> expiry (monotonic-ish wall clock). In-process only: restarting the
-# server logs everyone out, which is the right default for an admin console.
-_SESSIONS: dict[str, float] = {}
-
 router = APIRouter(prefix="/crm", tags=["crm"])
-
-
-# ── password gate ────────────────────────────────────────────────────────────
-
-def _new_session() -> str:
-    token = secrets.token_urlsafe(32)
-    _SESSIONS[token] = time.time() + SESSION_HOURS * 3600
-    # Drop expired tokens whenever a new one is minted.
-    for t, exp in list(_SESSIONS.items()):
-        if exp < time.time():
-            _SESSIONS.pop(t, None)
-    return token
-
-
-def _authed(request: Request) -> bool:
-    token = request.cookies.get(COOKIE)
-    if not token:
-        return False
-    exp = _SESSIONS.get(token)
-    if exp is None:
-        return False
-    if exp < time.time():
-        _SESSIONS.pop(token, None)
-        return False
-    return True
-
-
-def _denied():
-    return JSONResponse({"error": "not signed in"}, status_code=401)
-
-
-@router.post("/login")
-async def login(password: str = Form(...)):
-    if not secrets.compare_digest(password, CRM_PASSWORD):
-        logger.warning("CRM login rejected (wrong password)")
-        return HTMLResponse(LOGIN_PAGE.replace("<!--ERR-->",
-                            '<p class="err">Wrong password.</p>'), status_code=401)
-    resp = Response(status_code=303, headers={"Location": "/crm"})
-    resp.set_cookie(COOKIE, _new_session(), httponly=True, samesite="lax",
-                    max_age=int(SESSION_HOURS * 3600), path="/crm")
-    logger.info("CRM login accepted")
-    return resp
-
-
-@router.post("/logout")
-async def logout(request: Request):
-    _SESSIONS.pop(request.cookies.get(COOKIE) or "", None)
-    resp = Response(status_code=303, headers={"Location": "/crm"})
-    resp.delete_cookie(COOKIE, path="/crm")
-    return resp
 
 
 # ── speech → text (Deepgram, pre-recorded) ───────────────────────────────────
@@ -141,8 +80,6 @@ async def logout(request: Request):
 @router.post("/api/transcribe")
 async def transcribe(request: Request, audio: UploadFile = File(...)):
     """One recorded clip → its text."""
-    if not _authed(request):
-        return _denied()
     if not DEEPGRAM_API_KEY:
         return JSONResponse({"error": "DEEPGRAM_API_KEY not set"}, status_code=503)
     data = await audio.read()
@@ -380,8 +317,6 @@ def _entry_view(qid: str) -> dict:
 @router.get("/api/entries")
 async def entries(request: Request, all: int = 0):
     """The CRM-added entries (all=1 also lists the built-in bank, read-only)."""
-    if not _authed(request):
-        return _denied()
     ids = list(fr.CANONICAL_ANSWERS) if all else [
         q for q in fr.CANONICAL_ANSWERS if q in fr.CUSTOM_IDS]
     items = [_entry_view(q) for q in ids]
@@ -393,8 +328,6 @@ async def entries(request: Request, all: int = 0):
 @router.post("/api/save")
 async def save(request: Request, body: SaveIn):
     """Clean one dictated Q&A, add it to the bank, and pre-warm just that one."""
-    if not _authed(request):
-        return _denied()
     question = body.question.strip()
     answer = body.answer.strip()
     subs = [s.strip() for s in body.subquestions if s and s.strip()]
@@ -443,8 +376,6 @@ async def update(request: Request, body: UpdateIn):
     """Edit a question, its sub-questions and its answer — in the source files
     and in the running bank. Editing the ANSWER makes the recorded Hinglish
     wording stale, so that one entry is re-rendered and re-synthesized here."""
-    if not _authed(request):
-        return _denied()
     try:
         out = fr.update_entry(body.qid, body.question, body.subquestions,
                               body.answer)
@@ -473,8 +404,6 @@ async def prewarm(request: Request, body: PrewarmIn):
     stale, or has no audio, so nothing already approved is re-worded or
     re-billed. `force` re-renders regardless (one entry at a time only).
     """
-    if not _authed(request):
-        return _denied()
     if body.qid:
         if body.qid not in fr.CANONICAL_ANSWERS:
             return JSONResponse({"error": "no such entry"}, status_code=404)
@@ -511,8 +440,6 @@ async def delete(request: Request, body: DeleteIn):
     """Remove a question from the bank — any question, recorded here or
     hand-written. It goes from faq_router.py, agent.py's prompt, the running
     bank, and the wordings file in one go."""
-    if not _authed(request):
-        return _denied()
     try:
         out = fr.delete_entry(body.qid)
     except KeyError:
@@ -535,8 +462,6 @@ async def delete(request: Request, body: DeleteIn):
 async def export_xlsx(request: Request, all: int = 0):
     """The bank as a formatted spreadsheet: each question, then its
     sub-questions on their own rows, with the answer alongside."""
-    if not _authed(request):
-        return _denied()
     try:
         from openpyxl import Workbook
         from openpyxl.styles import Alignment, Font, PatternFill
@@ -599,8 +524,6 @@ async def download_variants(request: Request):
     """faq_variants.json exactly as it sits on disk — the approved spoken
     wordings. Served as a file so it can be backed up, diffed, or copied to
     another machine without shell access to the server."""
-    if not _authed(request):
-        return _denied()
     path = fr.FAQ_VARIANTS_FILE
     try:
         with open(path, "rb") as f:
@@ -628,8 +551,6 @@ async def download_tts_cache(request: Request):
     therefore also carries index.json, mapping every filename to the text it
     speaks, which is what makes the download worth having: it can be checked,
     archived, or dropped into another deployment's tts_cache/ as-is."""
-    if not _authed(request):
-        return _denied()
     import zipfile
     cache_dir = agent.TTS_CACHE_DIR
     if not cache_dir or not os.path.isdir(cache_dir):
@@ -687,8 +608,8 @@ async def health():
 
 # ── pages ────────────────────────────────────────────────────────────────────
 
-# Light theme, shared by both pages. Kept as a PLAIN string (not an f-string)
-# so the CSS braces need no doubling — the page templates interpolate it.
+# Light theme. Kept as a PLAIN string (not an f-string) so the CSS braces
+# need no doubling — the page template interpolates it.
 _CSS = """
   :root{--bg:#f6f7f9;--card:#ffffff;--line:#e4e7ec;--fg:#111827;--dim:#667085;
         --accent:#2563eb;--accent-soft:#eef4ff;--red:#d92d20;--red-soft:#fef3f2;
@@ -727,23 +648,6 @@ _CSS = """
   }
 """
 
-_CSS_LOGIN = """
-  body{background:var(--bg)}
-  .wrap{max-width:360px;margin:13vh auto;padding:32px 28px;background:var(--card);
-        border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow);
-        text-align:center}
-  h1{font-size:19px;margin:0 0 6px;letter-spacing:-.01em}
-  p.sub{color:var(--dim);font-size:13.5px;margin:0 0 22px}
-  form{display:flex;flex-direction:column;gap:10px}
-  button{background:var(--accent);color:#fff;font-weight:600;padding:10px 15px}
-  button:hover{background:#1d4ed8}
-  .err{color:var(--red);background:var(--red-soft);border:1px solid #fecdca;
-       border-radius:8px;padding:8px 10px;font-size:13.5px;margin:14px 0 0}
-  @media (max-width:420px){
-    .wrap{margin:8vh 16px;padding:26px 20px}
-  }
-"""
-
 # Inline stroke icons (16px, currentColor). Defined once as a plain string so
 # the page templates can drop them into static markup, and the script can reuse
 # the same shapes for rows it builds at runtime.
@@ -765,8 +669,6 @@ ICONS = {
                      '<path d="M4 20h16"/>'),
     "check": _svg('<path d="m20 6-11 11-5-5"/>'),
     "close": _svg('<path d="M18 6 6 18M6 6l12 12"/>'),
-    "logout": _svg('<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>'
-                   '<path d="m16 17 5-5-5-5"/><path d="M21 12H9"/>'),
     "alert": _svg('<path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3'
                   'L13.7 3.9a2 2 0 0 0-3.4 0Z"/><path d="M12 9v4"/>'
                   '<path d="M12 17h.01"/>'),
@@ -778,22 +680,6 @@ ICONS = {
 # The script builds rows client-side, so it needs the same shapes in JS.
 ICONS_JS = ",".join(f'{k}: `{v}`' for k, v in ICONS.items())
 
-
-LOGIN_PAGE = f"""<!doctype html>
-<html lang="en"><head><meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>MRPscan Software CRM — sign in</title><style>{_CSS}{_CSS_LOGIN}
-</style></head><body>
-  <div class="wrap">
-    <h1>MRPscan Software — question bank CRM</h1>
-    <p class="sub">Record questions and answers for the voice agent.</p>
-    <form method="post" action="/crm/login">
-      <input type="password" name="password" placeholder="Password" autofocus required>
-      <button type="submit">Sign in</button>
-    </form>
-    <!--ERR-->
-  </div>
-</body></html>"""
 
 _CSS_APP = """
   header{position:sticky;top:0;z-index:5;padding:14px 24px;background:var(--card);
@@ -876,7 +762,6 @@ _CSS_APP = """
     .spacer{display:none}
     .hdr-acts{width:100%;gap:8px}
     .hdr-acts>*{flex:1 1 calc(50% - 4px);min-width:0}   /* two per row */
-    .hdr-acts form{display:flex}
     .wide-only{display:none}          /* "Pre-warm", "Download" — labels fit */
     .hdr-acts button{justify-content:center;font-size:13px;padding:8px 10px;
          width:100%}
@@ -929,9 +814,6 @@ APP_PAGE = f"""<!doctype html>
       {ICONS["download"]} <span>Variants<span class="wide-only"> JSON</span></span></button>
     <button class="ghost" onclick="dlCache()" title="Every pre-warmed voice clip, zipped, with an index of what each one says">
       {ICONS["download"]} <span>Voice<span class="wide-only"> cache</span></span></button>
-    <form method="post" action="/crm/logout" style="display:inline">
-      <button class="ghost" type="submit">{ICONS["logout"]} <span>Sign out</span></button>
-    </form>
   </div>
 </header>
 <main>
@@ -1212,9 +1094,28 @@ load();
 </script></body></html>"""
 
 
+# The phone app (android/, user agent "…MRPscanAgentApp/<version>") is the
+# question bank only, so its console leaves out the Call button. The website
+# keeps it.
+_APP_UA = "MRPscanAgentApp/"
+_CALL_BUTTON = "    <button class=\"ghost\" onclick=\"location.href='/crm/call'\">"
+
+
+def _without_call_button(page: str) -> str:
+    start = page.find(_CALL_BUTTON)
+    if start < 0:
+        logger.warning("CRM: Call button not found; the phone app will show it")
+        return page
+    end = page.index("</button>\n", start) + len("</button>\n")
+    return page[:start] + page[end:]
+
+
+APP_PAGE_NO_CALL = _without_call_button(APP_PAGE)
+
+
 @router.get("")
 @router.get("/")
 async def index(request: Request):
-    if not _authed(request):
-        return HTMLResponse(LOGIN_PAGE.replace("<!--ERR-->", ""))
+    if _APP_UA in request.headers.get("user-agent", ""):
+        return HTMLResponse(APP_PAGE_NO_CALL)
     return HTMLResponse(APP_PAGE)

@@ -4,7 +4,7 @@ The browser page (main.py) stays as it is. This module adds the phone line:
 calls we *place* from the console, and calls customers place *to* the Vobiz
 number — both handed to the very same CallSession engine:
 
-    /crm/call  (dial page, behind the CRM password)
+    /crm/call  (dial page, in the CRM console)
         └─ POST /crm/call/api/dial  ──▶  Vobiz REST  POST /Account/<id>/Call/
                                             │  rings the customer
     Vobiz ──POST /answer──▶ this server      ▼  they pick up
@@ -46,11 +46,10 @@ from urllib.parse import quote
 
 import aiohttp
 from fastapi import APIRouter, Request, WebSocket, WebSocketDisconnect
-from fastapi.responses import FileResponse, JSONResponse, RedirectResponse, Response
+from fastapi.responses import FileResponse, JSONResponse, Response
 from pydantic import BaseModel
 from dotenv import load_dotenv
 
-import crm                      # password gate the dial page lives behind
 from agent import CallSession, THEY_CALLED_US_GREETING, WE_CALLED_THEM_GREETING
 
 load_dotenv()
@@ -560,8 +559,6 @@ class HangupBody(BaseModel):
 @console_router.get("")
 @console_router.get("/")
 async def page(request: Request):
-    if not crm._authed(request):
-        return RedirectResponse("/crm", status_code=303)
     if not os.path.exists(_PAGE):
         return JSONResponse({"error": "ui/call.html not found"}, status_code=404)
     return FileResponse(_PAGE, media_type="text/html")
@@ -569,8 +566,6 @@ async def page(request: Request):
 
 @console_router.get("/api/calls")
 async def api_calls(request: Request):
-    if not crm._authed(request):
-        return crm._denied()
     _prune()
     recs = sorted(_calls.values(), key=lambda r: r["placed_at"], reverse=True)
     return {"calls": [_public(r) for r in recs[:60]],
@@ -586,8 +581,6 @@ async def api_dial(body: DialBody, request: Request):
     """Dial one number or a batch. Every number is either placed or comes back
     in `skipped` with its reason; the batch never takes the calls in progress
     past MAX_CONCURRENT_CALLS."""
-    if not crm._authed(request):
-        return crm._denied()
     wanted = _split_numbers(body)
     if not wanted:
         return JSONResponse({"error": "Enter at least one phone number, e.g. 98765 43210"},
@@ -634,8 +627,6 @@ async def api_dial(body: DialBody, request: Request):
 
 @console_router.post("/api/hangup")
 async def api_hangup(body: HangupBody, request: Request):
-    if not crm._authed(request):
-        return crm._denied()
     rec = _calls.get(body.id)
     if rec is None:
         return JSONResponse({"error": "unknown call"}, status_code=404)
@@ -646,8 +637,6 @@ async def api_hangup(body: HangupBody, request: Request):
 
 @console_router.post("/api/hangup_all")
 async def api_hangup_all(request: Request):
-    if not crm._authed(request):
-        return crm._denied()
     recs = active_records()
     await asyncio.gather(*(hangup_record(r, "console") for r in recs), return_exceptions=True)
     return {"ended": len(recs), "active": len(active_records())}

@@ -1,0 +1,4 @@
+# gradlew must keep LF or it will not run from bash; the .bat stays CRLF.
+gradlew text eol=lf
+*.bat text eol=crlf
+*.jar binary

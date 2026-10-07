@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- app_name comes from APP_NAME in android/.env (see app/build.gradle). -->
+    <string name="offline_title">Can\'t reach the console</string>
+    <string name="offline_detail">%1$s\nCheck the internet connection, then try again.</string>
+    <string name="retry">Try again</string>
+    <string name="mic_needed">The microphone is needed to record questions and answers.</string>
+    <string name="mic_settings_title">Microphone is off</string>
+    <string name="mic_settings_body">Allow the microphone for %1$s in Settings → Permissions, then tap Record again.</string>
+    <string name="open_settings">Open settings</string>
+    <string name="not_now">Not now</string>
+    <string name="downloading">Downloading %1$s</string>
+    <string name="download_failed">Download failed: %1$s</string>
+    <string name="no_app_for_link">No app on this phone can open that link.</string>
+</resources>

@@ -6,7 +6,7 @@ the moment a row comes due, hands the number to vobiz_calls.place_call() — the
 exact same dial path the /crm/call console uses, so the answered call runs on
 the same CallSession engine.
 
-    /crm/schedule  (behind the CRM password)
+    /crm/schedule  (in the CRM console)
         └─ POST /crm/schedule/api/add   ──▶ Mongo  scheduled_calls
                                                 │
     every SCHEDULE_TICK_SECONDS  ──▶  _tick()  ──┘  claims what is due
@@ -46,7 +46,7 @@ import logging
 from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Request
-from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
+from fastapi.responses import FileResponse, JSONResponse
 from pydantic import BaseModel
 from bson import ObjectId
 from bson.errors import InvalidId
@@ -57,7 +57,6 @@ except ImportError:                     # pragma: no cover
     ZoneInfo = None
 
 import agent                # same process, same Mongo client, same credentials
-import crm                  # the password gate this console lives behind
 import vobiz_calls          # the dialer these rows are handed to
 
 logger = logging.getLogger("schedule")
@@ -390,8 +389,6 @@ async def _insert(item: Row) -> dict:
 @router.get("")
 @router.get("/")
 async def page(request: Request):
-    if not crm._authed(request):
-        return RedirectResponse("/crm", status_code=303)
     if not os.path.exists(_PAGE):
         return JSONResponse({"error": "ui/schedule.html not found"}, status_code=404)
     return FileResponse(_PAGE, media_type="text/html")
@@ -399,8 +396,6 @@ async def page(request: Request):
 
 @router.get("/api/list")
 async def api_list(request: Request):
-    if not crm._authed(request):
-        return crm._denied()
     if not _connected():
         return _no_db()
     docs = await (_collection()
@@ -425,8 +420,6 @@ async def api_list(request: Request):
 async def api_add(body: AddBody, request: Request):
     """One row, or a batch — every row is either scheduled or comes back in
     `skipped` with the reason it was refused."""
-    if not crm._authed(request):
-        return crm._denied()
     if not _connected():
         return _no_db()
     items = list(body.rows) or [body]
@@ -452,8 +445,6 @@ async def api_add(body: AddBody, request: Request):
 async def api_cancel(body: IdBody, request: Request):
     """Call it off. A call already on the line is left alone — hang that up on
     the /crm/call board."""
-    if not crm._authed(request):
-        return crm._denied()
     if not _connected():
         return _no_db()
     oid = _oid(body.id)
@@ -471,8 +462,6 @@ async def api_cancel(body: IdBody, request: Request):
 @router.post("/api/run_now")
 async def api_run_now(body: IdBody, request: Request):
     """Dial a pending row right away instead of waiting for its time."""
-    if not crm._authed(request):
-        return crm._denied()
     if not _connected():
         return _no_db()
     oid = _oid(body.id)
@@ -496,8 +485,6 @@ async def api_run_now(body: IdBody, request: Request):
 
 @router.post("/api/delete")
 async def api_delete(body: IdBody, request: Request):
-    if not crm._authed(request):
-        return crm._denied()
     if not _connected():
         return _no_db()
     oid = _oid(body.id)
@@ -513,8 +500,6 @@ async def api_delete(body: IdBody, request: Request):
 @router.post("/api/clear_done")
 async def api_clear_done(request: Request):
     """Tidy the board: drop everything that already happened."""
-    if not crm._authed(request):
-        return crm._denied()
     if not _connected():
         return _no_db()
     res = await _collection().delete_many(
