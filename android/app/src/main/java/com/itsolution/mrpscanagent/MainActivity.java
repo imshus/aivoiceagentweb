@@ -51,6 +51,14 @@ public class MainActivity extends Activity {
     private static final Pattern FILENAME =
             Pattern.compile("filename\\*?=(?:UTF-8'')?\"?([^\";]+)\"?", Pattern.CASE_INSENSITIVE);
 
+    /** Calling is not part of the app. A current server already leaves the console's Call
+     *  button out for the app; this hides it on a server that still sends it. */
+    private static final String HIDE_CALL_JS =
+            "(function(){if(document.getElementById('app-no-call'))return;" +
+            "var s=document.createElement('style');s.id='app-no-call';" +
+            "s.textContent='button[onclick*=\"/crm/call\"]{display:none!important}';" +
+            "(document.head||document.documentElement).appendChild(s);})();";
+
     private final List<PermissionRequest> waitingForMic = new ArrayList<>();
     private WebView web;
     private String failure;    // why the page did not load; null = it did
@@ -288,6 +296,9 @@ public class MainActivity extends Activity {
             if (!request.isForMainFrame()) return false;
             Uri uri = request.getUrl();
             String scheme = uri.getScheme() == null ? "" : uri.getScheme().toLowerCase(Locale.ROOT);
+            String path = uri.getPath() == null ? "" : uri.getPath();
+            // The calling pages stay on the website; the app does not open them.
+            if (isOurs(uri) && (path.startsWith("/crm/call") || path.startsWith("/crm/schedule"))) return true;
             if (isOurs(uri) || scheme.equals("about") || scheme.equals("data") || scheme.equals("blob")) return false;
             openOutside(uri);   // anything else belongs to the browser, the dialer, mail…
             return true;
@@ -302,8 +313,14 @@ public class MainActivity extends Activity {
         }
 
         @Override
+        public void onPageCommitVisible(WebView view, String url) {
+            if (view == web) view.evaluateJavascript(HIDE_CALL_JS, null);
+        }
+
+        @Override
         public void onPageFinished(WebView view, String url) {
             if (view != web) return;
+            view.evaluateJavascript(HIDE_CALL_JS, null);
             if (failure == null) lastGood = url;
             // The console's first page is the bottom of the history: Back from there leaves the app.
             if (isHome(url)) view.clearHistory();

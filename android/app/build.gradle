@@ -40,8 +40,8 @@ android {
         applicationId 'com.itsolution.mrpscanagent'
         minSdk 24
         targetSdk 35
-        versionCode 2
-        versionName '1.1.0'
+        versionCode 3
+        versionName '1.2.0'
         buildConfigField 'String', 'SERVER_URL', '"' + serverUrl + '"'
         // chrome://inspect for test copies only; the real app's pages cannot be inspected.
         buildConfigField 'boolean', 'WEB_DEBUG', project.hasProperty('testSuffix') ? 'true' : 'false'
