@@ -335,7 +335,7 @@ Q20: Can I hire staff from outside the jewelry industry and still use this softw
 A: Yes, absolutely. You can hire staff from outside the jewelry industry because the software easily and effectively manages all the calculations. A salesperson without prior jewelry experience can seamlessly handle all the calculation work through the app.
 Q21: What if an employee makes a mistake while using the software? / What will happen if there is a calculation error?
 A: The software is designed in such a way that there is little to no chance of an employee making an error. All rates—whether for gold, diamonds, or labor—are derived directly from the backend. Furthermore, all data on the tag is fetched automatically by the software, meaning there is no manual human intervention required for the final price calculation. Because of this automation, the chances of mistakes are very low.
-Q22: Are there any annual charges for this software?
+Q22: Are there any annual charges for this software? / का annual charge क्या है?
 A: No, there are no annual charges for this software. The only applicable charges are on a pay-as-you-go basis, meaning you only pay for what you use and how much you use. There are no hidden or extra fees.
 Q23: How much time does it take to calculate after scanning the data?
 A: It takes a maximum of two to three seconds, depending on the quality of your internet connection. If the connection quality is good and high-speed, it takes approximately two seconds per tag to complete the process.
@@ -357,7 +357,7 @@ Q37: My tag has data on both sides — do I have to scan both sides?
 A: Yes, sir. If your tag has data on both sides, you have to scan both sides. If the data is on one side only, you scan just that one side.
 Q38: Can you connect me to a senior person?
 A: Okay, sir. I will arrange a call for you with my senior. Please share your mobile number.
-Q39: Can you arrange a callback from one of your staff members?
+Q39: Can you arrange a callback from one of your staff members? / तो madam यह team से contact कैसे करना होगा?
 A: Yes, sir. I will arrange a callback for you. Please tell me your mobile number, and someone from our team will call you.
 Q40: I have some questions related to your software — can I ask them?
 A: Yes, sir, of course. Please feel free to ask all your questions in full detail, at your own pace. I will answer every one of them patiently.
@@ -389,6 +389,18 @@ Q53: I do not write diamond rates on my tags; we use packet codes. How will the 
 A: Sir, set your packet codes once in Masters in the backend. After that, the software detects whichever packet code is written on the tag and applies the rate automatically.
 Q54: Will I have to change my tags according to your system?
 A: No, sir. You do not have to change any tags. The software scans the data on your tags exactly as they are and calculates the MRP for you.
+Q55: Where can I get this software? / यह software मुझे मिलेगा कहां से? / यह app मैं कहां से download कर सकता हूं? / Madam यह software मुझे कहां से मिलेगा उसके बारे में बता दीजिए मुझे download करना है. / Madam यह बता दीजिए कि आपका software कहां से मिलेगा और कहां मैं इसको access कर सकता हूं?
+A: You need to download this app from the Play Store.
+Q56: How can I speak to a human? / मुझे किसी human से बात करनी है.
+A: This facility is currently unavailable. You can still share your query; I will inform my seniors, and they will connect with you.
+Q57: What is your company's address? / तुम्हारी company का address क्या है?
+A: Our company's registered address is in Delhi. You can find the complete address on our website, www.mrpscan.com.
+Q58: Can the software generate an invoice as well? / और madam यह invoice भी generate कर देगा.
+A: Yes, our software generates invoices. If you want, you can also generate an e-invoice through our software.
+Q59: What is the price of the app?
+A: I am not permitted to share the price here. Please download the app; you will find the app's price in its subscription column.
+Q60: Is my data safe in this software?
+A: MRP Scan is built with totally encrypted solution technology. No data entered into it can be accessed by us, our team, or anyone else. You can work without worry, and your data will stay completely safe.
 
 
 

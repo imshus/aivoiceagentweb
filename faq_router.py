@@ -329,7 +329,9 @@ CANONICAL_ANSWERS: dict[str, dict] = {
              "the chance of mistakes is very low.",
     },
     "Q22": {
-        "q": "Are there any annual charges for this software?",
+        "q": {"subq1": "Are there any annual charges for this software?",
+              "subq2": "का annual charge क्या है?",
+              },
         "a": "There are no annual charges. Charges are on a pay-as-you-go basis, "
              "so you pay for what you use and how much you use. There are no "
              "hidden or extra fees.",
@@ -443,7 +445,9 @@ CANONICAL_ANSWERS: dict[str, dict] = {
              "share your mobile number.",
     },
     "Q39": {
-        "q": "Can you arrange a callback from one of your staff members?",
+        "q": {"subq1": "Can you arrange a callback from one of your staff members?",
+              "subq2": "तो madam यह team से contact कैसे करना होगा?",
+              },
         "a": "Yes. I will arrange a callback for you. Please tell me your "
              "mobile number, and someone from our team will call you.",
     },
@@ -570,6 +574,37 @@ CANONICAL_ANSWERS: dict[str, dict] = {
         "a": "No. You do not have to change any tags. The software scans the "
              "data on your tags exactly as they are and calculates the MRP "
              "for you.",
+    },
+    "Q55": {  # added via /crm on 2026-09-08
+        "q": {"subq1": "Where can I get this software?",
+              "subq2": "यह software मुझे मिलेगा कहां से?",
+              "subq3": "यह app मैं कहां से download कर सकता हूं?",
+              "subq4": "Madam यह software मुझे कहां से मिलेगा उसके बारे में बता दीजिए मुझे download करना है.",
+              "subq5": "Madam यह बता दीजिए कि आपका software कहां से मिलेगा और कहां मैं इसको access कर सकता हूं?"},
+        "a": "You need to download this app from the Play Store.",
+    },
+    "Q56": {  # added via /crm on 2026-09-08
+        "q": {"subq1": "How can I speak to a human?",
+              "subq2": "मुझे किसी human से बात करनी है."},
+        "a": "This facility is currently unavailable. You can still share your query; I will inform my seniors, and they will connect with you.",
+    },
+    "Q57": {  # added via /crm on 2026-09-08
+        "q": {"subq1": "What is your company's address?",
+              "subq2": "तुम्हारी company का address क्या है?"},
+        "a": "Our company's registered address is in Delhi. You can find the complete address on our website, www.mrpscan.com.",
+    },
+    "Q58": {  # added via /crm on 2026-09-08
+        "q": {"subq1": "Can the software generate an invoice as well?",
+              "subq2": "और madam यह invoice भी generate कर देगा."},
+        "a": "Yes, our software generates invoices. If you want, you can also generate an e-invoice through our software.",
+    },
+    "Q59": {  # added via /crm on 2026-09-08
+        "q": "What is the price of the app?",
+        "a": "I am not permitted to share the price here. Please download the app; you will find the app's price in its subscription column.",
+    },
+    "Q60": {  # added via /crm on 2026-09-08
+        "q": "Is my data safe in this software?",
+        "a": "MRP Scan is built with totally encrypted solution technology. No data entered into it can be accessed by us, our team, or anyone else. You can work without worry, and your data will stay completely safe.",
     },
 }
 

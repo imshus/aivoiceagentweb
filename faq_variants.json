@@ -1,7 +1,7 @@
 {
   "language": "hinglish",
   "render_model": "gpt-5.6-luna",
-  "generated_at": "2026-09-08T11:34:02.522697+00:00",
+  "generated_at": "2026-11-21T08:27:09.811340+00:00",
   "entries": {
     "Q1": {
       "hash": "98cc4c20d748aa7aba0d8b53139eee8a647e0a7d2142c99b92b08daf4596bcaa",
@@ -325,6 +325,42 @@
       "hash": "e30aaea978f14399959cb498dbea738f6689192f2312a4b51db3a5f82859f238",
       "variants": [
         "कोई भी tags change करने की ज़रूरत नहीं है, ये software आपके tags को वैसे ही scan कर लेता है और MRP calculate कर देता है।"
+      ]
+    },
+    "Q55": {
+      "hash": "d09f3ad0449470565fcc471341be0586bd534d574d57b96d57cf56e3fca72561",
+      "variants": [
+        "ये app आपको Play Store से download करना है।"
+      ]
+    },
+    "Q56": {
+      "hash": "538d413d0c0bf5a25826d1b3633faa8e3c7794e76009eea0129a4e2f3d1bcb50",
+      "variants": [
+        "Human से connect करने की facility अभी available नहीं है। आप अपनी query share कर सकते हैं; मैं अपने seniors को inform कर दूँगी, और वे आपसे connect करेंगे।"
+      ]
+    },
+    "Q57": {
+      "hash": "e6bd4a368e415b14b623ec9a96eacd827c961c4f3928debc9cda8ad2c8128f69",
+      "variants": [
+        "हमारी company का registered address Delhi में है, और complete address हमारी website www.mrpscan.com पर मिल जाएगा।"
+      ]
+    },
+    "Q58": {
+      "hash": "598bdc63ddb36bce603780040f3b293044a84e2a2c41c5714a4ddcf6ed1e5ca4",
+      "variants": [
+        "हाँ, हमारा software invoices generate करता है। अगर आप चाहें, तो इसी software से e-invoice भी generate कर सकते हैं!"
+      ]
+    },
+    "Q59": {
+      "hash": "a1c83d42757dc726dc764b7b7ed1b34020cf75d5e20dd598afdc5ee73296266b",
+      "variants": [
+        "यहाँ price बताने की permission नहीं है। कृपया app download कर लीजिए, वहाँ subscription column में app की price मिल जाएगी।"
+      ]
+    },
+    "Q60": {
+      "hash": "84c037d59da8748afff6683b711c4a5ce45451cfd1497901d29fb98f232882d2",
+      "variants": [
+        "MRP Scan totally encrypted solution technology से बना है। इसमें enter किया गया कोई भी data हम, हमारी team, या कोई और access नहीं कर सकता। आप बिना चिंता के काम कर सकते हैं, और आपका data completely safe रहेगा!"
       ]
     }
   }
