@@ -1,7 +1,7 @@
 {
   "language": "hinglish",
   "render_model": "gpt-5.6-luna",
-  "generated_at": "2026-11-21T08:27:09.811340+00:00",
+  "generated_at": "2026-11-25T11:53:48.074347+00:00",
   "entries": {
     "Q1": {
       "hash": "98cc4c20d748aa7aba0d8b53139eee8a647e0a7d2142c99b92b08daf4596bcaa",
@@ -70,9 +70,9 @@
       ]
     },
     "Q12": {
-      "hash": "bacee00ecdf611430351e3b68cdbf5c49ba0a52cbe2e14466cdb3b90b5409107",
+      "hash": "9fca276ce3ac81e90940412a28f2330dbe7957471c9500075dedb51d0429ca05",
       "variants": [
-        "एक बार setup charge देना होता है और फिर monthly recurring cost आती है जो usage पर depend करती है, मतलब कितने tags scan हुए और कितने active users हैं। exact customized quote चाहिए तो directly हमारी team से contact करना होगा।"
+        "Software की one-time payment ₹15,000 plus GST है, और कोई monthly charges नहीं हैं!"
       ]
     },
     "Q13": {
@@ -352,9 +352,9 @@
       ]
     },
     "Q59": {
-      "hash": "a1c83d42757dc726dc764b7b7ed1b34020cf75d5e20dd598afdc5ee73296266b",
+      "hash": "5fd0a69d91cd766f8953e0c21cf730f7b8d256e0d7f1422df6ade3a3af2a68eb",
       "variants": [
-        "यहाँ price बताने की permission नहीं है। कृपया app download कर लीजिए, वहाँ subscription column में app की price मिल जाएगी।"
+        "App का price one-time ₹15,000 plus GST है, और कोई monthly charges नहीं हैं!"
       ]
     },
     "Q60": {

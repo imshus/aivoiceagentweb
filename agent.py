@@ -311,7 +311,7 @@ A: Yes. Multiple sub-users/employees can be created under a single admin account
 Q11: Can the admin control which Karat rates are visible to which employee?
 A: Yes. The admin can enable or disable view access for specific Karat rates (like 14K or 18K) on a per-employee basis, ensuring staff only see what they are permitted to see.
 Q12: What are the charges for this software? / ये software का क्या price है? / ये software कितने का है? / ये software की क्या cost है?
-A: There is a one-time setup charge and a monthly recurring cost based on usage (number of tags scanned and active users). Exact customized quotes require direct contact.
+A: The software costs a one-time payment of ₹15,000 plus GST. There are no monthly charges.
 Q13: Is customization available in the software?
 A: Standard customization is not offered by default. However, specific requirements can be discussed with the team, who will evaluate feasibility and provide an honest assessment.
 Q14: who built this software?
@@ -398,7 +398,7 @@ A: Our company's registered address is in Delhi. You can find the complete addre
 Q58: Can the software generate an invoice as well? / और madam यह invoice भी generate कर देगा.
 A: Yes, our software generates invoices. If you want, you can also generate an e-invoice through our software.
 Q59: What is the price of the app?
-A: I am not permitted to share the price here. Please download the app; you will find the app's price in its subscription column.
+A: The app costs a one-time payment of ₹15,000 plus GST. There are no monthly charges.
 Q60: Is my data safe in this software?
 A: MRP Scan is built with totally encrypted solution technology. No data entered into it can be accessed by us, our team, or anyone else. You can work without worry, and your data will stay completely safe.
 
@@ -575,8 +575,9 @@ ANSWERING_POLICY = (
     "or give a 'most likely' answer; reply with the standard decline line: 'माफ़ कीजिए, मैं सिर्फ हमारे jewelry software के बारे में help कर सकती हूँ। इसके बारे में कुछ पूछना चाहेंगे?'"
     "\n   RATES: Q3/Q4 describe WHERE rates come from (backend live rates; RTGS vs cash "
     "modes) — explaining that MECHANISM is allowed, from those entries only. But NEVER "
-    "state or imply an actual price/rate FIGURE or today's bhaav — no number is written "
-    "in the bank; for actual numbers reply with the same standard decline line."
+    "state or imply an actual gold/diamond rate FIGURE or today's bhaav — no rate is written "
+    "in the bank; for actual rate numbers reply with the same standard decline line. (The "
+    "software's own price in Q12 / Q59 — ₹15,000 plus GST, one-time — IS written: say it.)"
     "\n4) UNRELATED to this software → politely decline and steer back."
     "\nGREETINGS & SMALL TALK are NOT step-4 material: a plain hello / हेलो / 'sun "
     "rahe ho?' / 'awaaz aa rahi hai?' / thanks / 'ok' / 'theek hai' / 'aap AI ho?' "

@@ -249,10 +249,8 @@ CANONICAL_ANSWERS: dict[str, dict] = {
               "subq3": "ये software कितने का है?",
               "subq4": "ये software की क्या cost है?",
               },
-        "a": "There is a one-time setup charge and a monthly recurring cost based "
-             "on usage, meaning the number of tags scanned and the number of "
-             "active users. An exact customized quote requires contacting the "
-             "team directly.",
+        "a": "The software costs a one-time payment of ₹15,000 plus GST. There "
+             "are no monthly charges.",
     },
     "Q13": {
         "q": "Is customization available in the software?",
@@ -600,7 +598,7 @@ CANONICAL_ANSWERS: dict[str, dict] = {
     },
     "Q59": {  # added via /crm on 2026-09-08
         "q": "What is the price of the app?",
-        "a": "I am not permitted to share the price here. Please download the app; you will find the app's price in its subscription column.",
+        "a": "The app costs a one-time payment of ₹15,000 plus GST. There are no monthly charges.",
     },
     "Q60": {  # added via /crm on 2026-09-08
         "q": "Is my data safe in this software?",
@@ -1103,7 +1101,8 @@ Actions, in strict priority order:
    previous agent action was ASK, you must NOT ASK again. Use the caller's two
    turns together: ANSWER the single closest entry, or ROUTE if nothing is
    reasonably close. Interrogating the caller twice in a row is forbidden.
-5. ROUTE — about this product but NOT covered by any entry: price/charges/
+5. ROUTE — about this product but NOT covered by any entry: charges other
+   than the software's own price (that is Q12 / Q59 — ANSWER those), discounts,
    renewal/refund/purchase/demo/install, today's gold price or bhaav (never
    state a figure), how-to / troubleshooting / performance / updates not in the
    bank, or capability questions about UNLISTED things (silver, offline, GST
@@ -1118,7 +1117,7 @@ Actions, in strict priority order:
    entry. Being decisive beats interrogating: a good best-match answer is
    better than a second question. This 80% rule only chooses AMONG the entries
    above — it NEVER overrides ROUTE: if the asked fact isn't written in the
-   bank (prices, today's bhaav, unlisted capabilities), no confidence level
+   bank (other prices or charges, today's bhaav, unlisted capabilities), no confidence level
    makes it answerable.
    Didn't-understand turns and vague follow-ups after an answer are CLARIFY
    (action 2), never a fresh ANSWER.
