@@ -43,6 +43,7 @@ Env:
 import os
 import asyncio
 import logging
+from typing import Optional
 from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Request
@@ -72,7 +73,7 @@ _PAGE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "ui", "schedule
 _MAX_ROWS = 500                 # newest N returned to the console
 _LIVE_STATES = ("dialing", "calling")
 
-_task: asyncio.Task | None = None
+_task: Optional[asyncio.Task] = None
 
 
 def _tz():
@@ -133,7 +134,7 @@ def parse_when(date: str, time_: str, when: str = "") -> datetime:
     return dt.astimezone(timezone.utc)
 
 
-def _local(dt: datetime | None) -> str:
+def _local(dt: Optional[datetime]) -> str:
     if not dt:
         return ""
     return _utc(dt).astimezone(_tz()).strftime("%Y-%m-%d %H:%M")

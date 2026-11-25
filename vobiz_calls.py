@@ -42,6 +42,7 @@ import json
 import time
 import asyncio
 import logging
+from typing import Optional
 from urllib.parse import quote
 
 import aiohttp
@@ -103,7 +104,7 @@ def configured() -> list[str]:
 
 # ── numbers ───────────────────────────────────────────────────────────────────
 
-def normalize_number(raw: str) -> str | None:
+def normalize_number(raw: str) -> Optional[str]:
     """'98765 43210' / '098765-43210' / '919876543210' / '+91…' → '+919876543210'."""
     s = re.sub(r"[\s\-().]", "", raw or "")
     if s.startswith("00"):
@@ -165,7 +166,7 @@ def _public(rec: dict) -> dict:
     }
 
 
-def _mark_ended(rec: dict, cause: str | None = None, duration=None) -> None:
+def _mark_ended(rec: dict, cause: Optional[str] = None, duration=None) -> None:
     if rec["state"] == "ended":
         return
     rec["state"] = "ended"
@@ -199,7 +200,7 @@ def active_records() -> list[dict]:
     return [r for r in _calls.values() if r["state"] != "ended"]
 
 
-def _find(*, request_uuid: str = "", call_uuid: str = "", to: str = "") -> dict | None:
+def _find(*, request_uuid: str = "", call_uuid: str = "", to: str = "") -> Optional[dict]:
     """Locate the record a Vobiz webhook / media socket is talking about.
 
     Prefer the ids; fall back to the dialled number. The fallback only ever
@@ -242,7 +243,7 @@ def _headers() -> dict:
 
 
 def _new_record(rid: str, *, to: str, frm: str, direction: str,
-                call_uuid: str | None = None) -> dict:
+                call_uuid: Optional[str] = None) -> dict:
     """The one shape a call record has, whoever started it. `peer` is the
     customer's number in both directions — dialled for outbound, caller for
     inbound — so the console never has to branch on direction."""

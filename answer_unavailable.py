@@ -37,6 +37,7 @@ are never modified.
 """
 import os
 import logging
+from typing import Optional
 
 from fastapi import APIRouter, Request
 from fastapi.responses import HTMLResponse, JSONResponse
@@ -141,7 +142,7 @@ def _filter(items: list, kind: str, search: str) -> list:
 
 class ItemRef(BaseModel):
     conv_id: str
-    qid: str | None = None
+    qid: Optional[str] = None
     index: int = 0
     question: str = ""
 

@@ -40,7 +40,7 @@ import os
 import random
 import re
 from datetime import datetime, timezone
-from typing import AsyncGenerator
+from typing import AsyncGenerator, Optional
 
 from dotenv import load_dotenv
 from openai import AsyncOpenAI
@@ -833,7 +833,7 @@ _LOCAL_MATCHERS: list[tuple[str, tuple[re.Pattern, ...]]] = [
 ]
 
 
-def local_match(text: str) -> str | None:
+def local_match(text: str) -> Optional[str]:
     """Qid iff the turn unmistakably names exactly ONE bank entry, else None."""
     if not FAQ_LOCAL_MATCH:
         return None
@@ -865,7 +865,7 @@ def _entry_hash(qid: str) -> str:
     return hashlib.sha256(CANONICAL_ANSWERS[qid]["a"].encode("utf-8")).hexdigest()
 
 
-def load_variants(path: str | None = None) -> int:
+def load_variants(path: Optional[str] = None) -> int:
     """Load pre-rendered wordings; returns how many entries got variants."""
     global _VARIANTS, _VARIANTS_EPOCH
     # Bump first: any caller of this function is changing the wordings, and
@@ -908,7 +908,7 @@ def load_variants(path: str | None = None) -> int:
     return len(loaded)
 
 
-def pick_variant(qid: str, state: dict) -> str | None:
+def pick_variant(qid: str, state: dict) -> Optional[str]:
     """One approved pre-rendered wording, rotated so repeats sound fresh."""
     vs = _VARIANTS.get(qid)
     if not vs:
@@ -995,7 +995,7 @@ def speculate(user_text: str, history: list[dict], state: dict) -> None:
     state["_spec"] = (norm, task)
 
 
-def try_fast_answer(user_text: str, state: dict) -> str | None:
+def try_fast_answer(user_text: str, state: dict) -> Optional[str]:
     """Full zero-LLM turn: deterministic match + pre-rendered approved wording.
 
     agent.py calls this BEFORE route_and_render(). A non-None return is the
@@ -1564,8 +1564,8 @@ def route_and_render(history: list[dict],
 
     spec = state.pop("_spec", None)  # (normalized text, task) from speculate()
 
-    decision_direct: dict | None = None
-    decision_task: asyncio.Task | None = None
+    decision_direct: Optional[dict] = None
+    decision_task: Optional[asyncio.Task] = None
     if state.get("last_answer_id") in CANONICAL_ANSWERS and _is_clarification(last_user):
         decision_direct = {"action": "CLARIFY"}  # deterministic — no classifier
     elif (_m := local_match(last_user)) is not None:

@@ -10,7 +10,7 @@ import uuid
 import unicodedata
 # FIX: timezone-aware timestamps (datetime.utcnow() is deprecated)
 from datetime import datetime, timezone
-from typing import AsyncGenerator
+from typing import AsyncGenerator, Optional
 import aiohttp
 import websockets
 from dotenv import load_dotenv
@@ -271,7 +271,7 @@ _SMALLTALK_PATTERNS = [
         r"[\s!.,।?]*$", re.IGNORECASE)),
 ]
 
-def match_smalltalk(text: str) -> str | None:
+def match_smalltalk(text: str) -> Optional[str]:
     t = text.strip()
     for kind, pattern in _SMALLTALK_PATTERNS:
         if pattern.match(t):
@@ -770,7 +770,7 @@ ELEVENLABS_WS_URL = (
 )
 # Reuse one HTTP session across the call so each sentence doesn't pay a fresh
 # TLS handshake (which would add latency to every reply).
-_tts_session: aiohttp.ClientSession | None = None
+_tts_session: Optional[aiohttp.ClientSession] = None
 
 async def _get_tts_session() -> aiohttp.ClientSession:
     global _tts_session
@@ -800,7 +800,7 @@ _tts_ws_pool: "asyncio.Queue[tuple]" = asyncio.Queue()
 # slot busy WAITS briefly for one instead of failing. 0 = no cap. Default 10 =
 # the Creator plan on flash_v2_5; raise it when the plan changes.
 ELEVENLABS_MAX_CONCURRENT = int(os.getenv("ELEVENLABS_MAX_CONCURRENT", "10"))
-_tts_slots: asyncio.Semaphore | None = (
+_tts_slots: Optional[asyncio.Semaphore] = (
     asyncio.Semaphore(ELEVENLABS_MAX_CONCURRENT) if ELEVENLABS_MAX_CONCURRENT > 0 else None)
 
 async def _tts_slot_acquire():
@@ -959,7 +959,7 @@ _tts_cache: dict[str, list[bytes]] = {}
 _tts_inflight: dict[str, asyncio.Future] = {}
 
 
-def _tts_inflight_finish(text: str, chunks: list[bytes] | None) -> None:
+def _tts_inflight_finish(text: str, chunks: Optional[list[bytes]]) -> None:
     """Hand the result (or None, on failure/cancellation) to anyone waiting."""
     fut = _tts_inflight.pop(text, None)
     if fut is not None and not fut.done():
@@ -1002,7 +1002,7 @@ def _tts_disk_path(text: str) -> str:
 _PREWARM_MANIFEST = "prewarm_manifest.json"
 
 
-def _tts_disk_load(text: str) -> list[bytes] | None:
+def _tts_disk_load(text: str) -> Optional[list[bytes]]:
     if not TTS_CACHE_DIR:
         return None  # disk cache disabled via TTS_CACHE_DIR=""
     try:
@@ -1131,7 +1131,7 @@ def _fix_pronunciation(text: str) -> str:
 async def stream_tts_audio(
     text: str,
     use_cache: bool = False,
-    previous_text: str | None = None,
+    previous_text: Optional[str] = None,
 ) -> AsyncGenerator[bytes, None]:
     if use_cache and text in _tts_cache:
         for chunk in _tts_cache[text]:
@@ -1408,7 +1408,7 @@ async def _peek_single(token_iter):
     return None, _chained()
 
 
-_fixed_texts_cache: set | None = None
+_fixed_texts_cache: Optional[set] = None
 _fixed_texts_epoch = -1
 
 
@@ -1578,17 +1578,17 @@ class CallSession:
         # Opening line for this session. None = GREETING_TEXT (someone came to
         # us); an outbound call (vobiz_calls.py) sets its own "I'm calling
         # about your inquiry" line here before the stream starts.
-        self.greeting: str | None = None
-        self.stream_id: str | None = None
+        self.greeting: Optional[str] = None
+        self.stream_id: Optional[str] = None
         self.is_playing = False
         self.conversation_history = [{"role": "system", "content": AGENT_SYSTEM_PROMPT + LANGUAGE_DIRECTIVE + UNDERSTANDING_DIRECTIVE + SCOPE_DIRECTIVE + CLARIFY_DIRECTIVE + ANSWERING_POLICY}]
         self.transcript_buffer = ""
         self.turn_confidences: list[float] = []  # Deepgram conf per final, this turn
-        self.silence_timer: asyncio.Task | None = None
+        self.silence_timer: Optional[asyncio.Task] = None
         self.deepgram_ws = None
-        self._deepgram_task: asyncio.Task | None = None
-        self._keepalive_task: asyncio.Task | None = None
-        self._silence_task: asyncio.Task | None = None
+        self._deepgram_task: Optional[asyncio.Task] = None
+        self._keepalive_task: Optional[asyncio.Task] = None
+        self._silence_task: Optional[asyncio.Task] = None
         # Last moment the line was NOT dead air: caller speech, or the agent
         # talking. Seeded at the start so the greeting itself counts.
         self._last_activity = 0.0
@@ -1597,7 +1597,7 @@ class CallSession:
         # the media socket closing — and they can arrive in the same tick. One
         # call must save ONE transcript, so cleanup is idempotent.
         self._cleaned = False
-        self.current_stream_task: asyncio.Task | None = None
+        self.current_stream_task: Optional[asyncio.Task] = None
         self.streaming_active = False
         # Text the agent is currently speaking — used to filter out its own echo
         # so the agent doesn't barge-in on itself.
@@ -1618,13 +1618,13 @@ class CallSession:
         self._out_env: list[tuple[float, float, float]] = []
         self._energy_loud_ms = 0.0        # consecutive above-ceiling inbound ms
         self._pause_sending = False       # energy gate tripped, awaiting verdict
-        self._energy_confirm_task: asyncio.Task | None = None
+        self._energy_confirm_task: Optional[asyncio.Task] = None
         # ── Premature-reply retraction state ─────────────────────────────────
         # If the caller keeps talking after end-of-turn fired but BEFORE the
         # reply produced any audible audio, the reply is RETRACTED: cancelled,
         # its history entries removed, and the consumed question restored to
         # the buffer so the caller's continuation merges into ONE full turn.
-        self._turn_user_text: str | None = None  # text consumed by current reply
+        self._turn_user_text: Optional[str] = None  # text consumed by current reply
         self._reply_audio_sent = False           # reply became audible?
         self._retract_turn = False                # set by _barge_in, applied by the reply task
         # ── Attention flags (written to the Mongo call document) ─────────────
@@ -1648,7 +1648,7 @@ class CallSession:
         self._caller_silent = False
         # Why the agent ended the call, for the board to show. None = the call
         # ended some other way (caller hung up, console, socket dropped).
-        self.hangup_reason: str | None = None
+        self.hangup_reason: Optional[str] = None
 
         logger.info(f"📞 New CallSession: caller={caller_id}, call_uuid={call_uuid}")
         logger.info(f"Barge-in armed: enabled={BARGE_IN_ENABLED}, "
@@ -2364,7 +2364,7 @@ class CallSession:
                 self.current_stream_task = None
                 # Keep _spoken_text so the echo filter covers the buffered tail.
 
-    async def _process_after_silence(self, wait: float | None = None):
+    async def _process_after_silence(self, wait: Optional[float] = None):
         try:
             # Deepgram's speech_final means the caller has definitively stopped, so
             # we respond with no extra wait. Otherwise fall back to a short silence
