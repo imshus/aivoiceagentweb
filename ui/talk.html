@@ -285,11 +285,31 @@ function wsEndpoint() {
 // auto-start there is no gesture to blame and the user needs telling what to do.
 async function start(auto) {
   if (starting || running) return;
+  try {
+    await startCall(auto);
+  } catch (err) {
+    // Never leave the page sitting on "Connecting…" with a dead button.
+    console.error(err);
+    starting = false;
+    teardown();
+    setStatus("Couldn't start the call (" + ((err && err.message) || err) + "). Click the button to try again.");
+  }
+}
+
+async function startCall(auto) {
   starting = true;
   const wsUrl = wsEndpoint();
   if (!wsUrl) {
     starting = false;
-    setStatus("Open http://localhost:5000 (run: python web_app.py) — not the .html file itself.");
+    setStatus("Open http://localhost:5000 (run: python main.py) — not the .html file itself.");
+    return;
+  }
+  // Browsers give a page the microphone only on https:// (or localhost). On a
+  // plain http://<server-ip> address navigator.mediaDevices doesn't exist at all.
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+    starting = false;
+    setStatus("The microphone only works on an https:// address (or localhost). This page is " +
+      location.origin + ".");
     return;
   }
 
@@ -299,7 +319,15 @@ async function start(auto) {
   // Create the audio context and start the "calling" ring immediately — before
   // we even ask for the mic — so there is instant feedback.
   audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-  if (audioCtx.state === "suspended") { try { await audioCtx.resume(); } catch (e) {} }
+  // On a site the browser doesn't trust to play sound yet (a new address, opened
+  // without a tap), Chrome leaves resume() PENDING — it never resolves or fails.
+  // Awaiting it hung the page on "Connecting…" with the button disabled, so give
+  // it a moment and then judge by the state ourselves.
+  if (audioCtx.state === "suspended") {
+    try {
+      await Promise.race([audioCtx.resume(), new Promise((r) => setTimeout(r, 500))]);
+    } catch (e) {}
+  }
   // Autoplay policy: a context created without a user gesture stays suspended
   // on most browsers, and every browser on iOS. The call would connect and the
   // agent would talk into a muted output, so stop here and wait for any tap —
@@ -375,7 +403,7 @@ async function start(auto) {
   };
 
   ws.onerror = () => {
-    if (!opened) setStatus("Can't reach the agent at " + wsUrl + " — is web_app.py running on this port?");
+    if (!opened) setStatus("Can't reach the agent at " + wsUrl + " — is the server running?");
   };
   ws.onclose = (ev) => {
     starting = false;
@@ -384,7 +412,7 @@ async function start(auto) {
       teardown();
       setStatus("Connection failed to " + wsUrl +
         (ev && ev.code ? " (code " + ev.code + ")" : "") +
-        ". Run 'python web_app.py' and open http://localhost:5000.");
+        ". Is the server running, and does the proxy in front of it pass WebSockets?");
       return;
     }
     if (running) stop();
